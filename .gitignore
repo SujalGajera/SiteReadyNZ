@@ -1,0 +1,16 @@
+# Secrets — real values live only on your machine (AGENT_RULES rule 17)
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+dev-dist/
+
+# Editor and OS noise
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+coverage/
