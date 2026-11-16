@@ -33,7 +33,9 @@ const userSchema = new Schema<IUser>(
     },
     passwordHash: {
       type: String,
-      // Not required at schema level because Google OAuth users have no password
+      // Not required at schema level because Google OAuth users have no password.
+      // select:false means queries leave it out unless they ask for it with '+passwordHash'.
+      select: false,
     },
     role: {
       type: String,
@@ -62,12 +64,18 @@ userSchema.methods.comparePassword = async function (
   return bcrypt.compare(plainTextPassword, this.passwordHash);
 };
 
-// Remove passwordHash from any JSON serialisation so it is never accidentally
-// returned in an API response. toObject() is used by Mongoose internally.
+// Shape every user sent to the browser: expose `id` (instead of `_id`), and never
+// include the password hash, the Google ID or Mongoose's version counter.
 userSchema.set('toJSON', {
-  transform(_doc, returnedObject) {
-    delete returnedObject.passwordHash;
-    return returnedObject;
+  transform(_doc, ret) {
+    // Mongoose types `ret` as the full document, which does not allow `delete`
+    const plainUser = ret as unknown as Record<string, unknown>;
+    plainUser.id = String(plainUser._id);
+    delete plainUser._id;
+    delete plainUser.__v;
+    delete plainUser.passwordHash;
+    delete plainUser.googleId;
+    return plainUser;
   },
 });
 

@@ -86,21 +86,21 @@ siteready-nz/
 Work through these phases **in order**. Do not jump ahead. Each phase has clear done criteria.
 
 ### Phase 1 — Project Bootstrap & Config
-- [ ] Scaffold frontend: `npm create vite@latest frontend -- --template react-ts`
-- [ ] Install Tailwind CSS, ShadCN UI, Framer Motion
-- [ ] Scaffold backend: Express + TypeScript + Mongoose
-- [ ] Setup `.env` files for both
-- [ ] Configure service worker (Workbox via vite-plugin-pwa)
-- [ ] Setup PWA manifest.json
+- [x] Scaffold frontend: `npm create vite@latest frontend -- --template react-ts`
+- [x] Install Tailwind CSS, ShadCN UI, Framer Motion
+- [x] Scaffold backend: Express + TypeScript + Mongoose
+- [x] Setup `.env` files for both
+- [x] Configure service worker (Workbox via vite-plugin-pwa)
+- [x] Setup PWA manifest.json
 - **Done when:** Both dev servers start cleanly. Service worker registers in DevTools. 
 
 ### Phase 2 — Auth System
-- [ ] MongoDB User model (name, email, passwordHash, role, googleId)
-- [ ] POST /auth/register + POST /auth/login (JWT)
-- [ ] Google OAuth 2.0 (Passport.js)
-- [ ] AuthContext in React (persist JWT in httpOnly cookie or localStorage)
-- [ ] Protected routes (manager vs staff guards)
-- [ ] Login + Register pages
+- [x] MongoDB User model (name, email, passwordHash, role, googleId)
+- [x] POST /auth/register + POST /auth/login (JWT)
+- [ ] Google OAuth 2.0 (Passport.js) (built and tested up to the Google redirect; needs your Google keys for a live test)
+- [x] AuthContext in React (persist JWT in httpOnly cookie or localStorage)
+- [x] Protected routes (manager vs staff guards)
+- [x] Login + Register pages
 - **Done when:** Can register, login with email/password and with Google. JWT returned and stored. Protected routes redirect unauthenticated users.
 
 ### Phase 3 — Feature 1: Equipment Management (Manager)

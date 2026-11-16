@@ -163,6 +163,62 @@ The first session wrote code beyond Phase 1 without checking it. This session au
 
 ## Phase 2 — Authentication System
 
+### Phase 2 — Audit and completion (second session)
+
+**Decision: JWT in an httpOnly cookie, not localStorage.** The browser cannot read an httpOnly cookie, so a script injected into the page cannot steal the login. The cookie is `SameSite=Lax` (not sent on cross-site POSTs, which blocks basic CSRF) and `Secure` in production. The login response still includes the token in its body so Postman can use `Authorization: Bearer <token>`. The server accepts either.
+
+**What the audit found and fixed:**
+- API returned `_id` but the frontend expected `id`; `passwordHash` was not excluded from queries. Now `toJSON` exposes `id` and hides the hash and Google ID, and `passwordHash` has `select: false`.
+- No `/auth/me` or `/auth/logout`, so the frontend could not restore a session. Added both.
+- Google callback put the token in the URL (leaks into history and logs) and never checked the OAuth `state`. Now the token goes only in the cookie, and `state` is a random value held in a 10-minute httpOnly cookie, compared with `timingSafeEqual`.
+- `normalizeEmail()` rewrites Gmail addresses (removes dots), which would stop Google accounts linking. Removed; the service lowercases and trims instead.
+- Added rate limiting (20 attempts per 15 minutes on login and register), `helmet` headers, a 1 MB JSON body limit, and a max password length of 72 (bcrypt ignores the rest).
+- The error handler no longer prints stack traces for expected 4xx errors and no longer sends internal messages to the client on 500s.
+
+### [backend/src/services/authService.ts]
+**Status:** Created
+**Phase:** Phase 2
+**Pattern:** Service layer
+**What it does:** `registerUser`, `authenticateUser`, `getUserById`. Hashes passwords with bcrypt (12 rounds) and throws errors carrying an HTTP status.
+**Why structured this way:** Controllers stay thin (AGENT_RULES 12). "No such email" and "wrong password" give the same 401 message, so attackers cannot discover which emails are registered.
+
+### [backend/src/controllers/authController.ts], [backend/src/routes/authRoutes.ts]
+**Status:** Modified
+**Phase:** Phase 2
+**What it does:** `register` (201), `login` (200), `logout` (204), `getCurrentUser` (200), `googleCallback` (redirect). Validation rules live next to each route. Validation failures return `{ error, errors[] }` so the UI can show one sentence or per-field messages.
+
+### [backend/src/utils/authCookie.ts], [backend/src/middleware/authMiddleware.ts], [backend/src/middleware/googleOAuth.ts]
+**Status:** Created / Modified
+**Phase:** Phase 2
+**Pattern:** Middleware chain
+**What it does:** One place sets and clears the cookies. `requireAuthentication` reads the cookie first, then the Bearer header. `googleOAuth.ts` splits the Google flow into three steps: start (create `state`), verify (compare `state`), complete (Passport). If Google keys are missing, the user is sent back to `/login` with a clear message instead of a crash.
+
+### [frontend/src/context/AuthContext.tsx], [frontend/src/hooks/useAuth.ts]
+**Status:** Rewritten
+**Phase:** Phase 2
+**Pattern:** Context/Provider
+**What it does:** Holds `user`, `isLoading`, `login`, `register`, `logout`. On load it asks `/auth/me`. If the network is down it falls back to a cached copy of the profile (never the token), so the app opens offline. On logout it also clears the cached API answers so the next person on a shared phone cannot see them.
+
+### [frontend/src/services/api.ts]
+**Status:** Rewritten
+**Phase:** Phase 2
+**Pattern:** Singleton
+**What it does:** One Axios client with `withCredentials: true`. A 401 anywhere (except login attempts) fires a `siteready:session-expired` event, which AuthContext turns into a sign-out. Helpers turn errors into plain messages.
+
+### [frontend/src/components/routing/RouteGuards.tsx], [frontend/src/App.tsx]
+**Status:** Created / Modified
+**Phase:** Phase 2
+**What it does:** `ProtectedRoute` sends signed-out users to `/login` (and returns them to the page they wanted), and sends the wrong role to the home page via a `roles` prop. `PublicOnlyRoute` keeps signed-in users away from login and register. Manager-only and staff-only pages use `<ProtectedRoute roles={['manager']}>` from Phase 3.
+
+### [frontend/src/pages/auth/Login.tsx], [Register.tsx], [components/auth/*], [hooks/useAuthForms.ts], [hooks/useFormFields.ts], [utils/validators.ts]
+**Status:** Rewritten / Created
+**Phase:** Phase 2
+**What it does:** Split layout: a forest-green panel with a preview of the real checklist, and the form on paper. Visible labels, errors on blur, loading button, show/hide password, role chosen with two radio cards, Google button. Logic lives in hooks and pure validators (easy to unit test in Phase 6).
+**Done check (real Chrome against the running servers, 21 checks):** register, login, logout, session survives reload, signed-out visitors redirected, signed-in visitors kept off /login, duplicate email message, Google-not-configured message, cookie is HttpOnly and the token is not visible to scripts, no horizontal scroll at 375px, mobile drawer opens. API checks: 201, 409, 400, 401, 403 (staff on a manager route), 204, 429 after 20 attempts, forged Google `state` rejected.
+**Not yet verified:** a real Google sign-in. It needs your Google client ID and secret (see the setup note in the session summary).
+
+---
+
 ### [backend/src/config/db.ts]
 **Status:** Created
 **Phase:** Phase 1–2 — Project Bootstrap & Auth System

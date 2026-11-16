@@ -1,94 +1,125 @@
-import React, { createContext, useContext, useState, useCallback } from 'react'
-import type { User } from '../types'
-import { api } from '../services/api'
+import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { api, isNetworkError, SESSION_EXPIRED_EVENT } from '@/services/api'
+import type { User, UserRole } from '@/types'
 
-// --- Context shape ---
+// Context/Provider Pattern: any component can read the signed-in user without props being
+// passed down through every level.
 
-interface AuthContextValue {
+// Only the public profile is cached (never the token), so the app can open offline.
+const CACHED_USER_KEY = 'siteready_user'
+
+export interface RegisterDetails {
+  name: string
+  email: string
+  password: string
+  role: UserRole
+}
+
+export interface AuthContextValue {
   user: User | null
-  /** Signs in with email + password, stores the returned JWT */
-  login: (email: string, password: string) => Promise<void>
-  /** Used after Google OAuth redirect — the token comes in the URL query string */
-  loginWithToken: (token: string) => Promise<void>
-  logout: () => void
-  isAuthenticated: boolean
-  isManager: boolean
-  isStaff: boolean
+  /** True until the first "who am I?" check has finished, so guards do not flash the login page */
+  isLoading: boolean
+  login: (email: string, password: string) => Promise<User>
+  register: (details: RegisterDetails) => Promise<User>
+  logout: () => Promise<void>
 }
 
-// Using undefined as default so we can detect when the hook is used outside the provider
-const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-// --- Provider ---
-
-interface AuthProviderProps {
-  children: React.ReactNode
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
-  // Restore the previously logged-in user from localStorage on first render
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem('siteready_user')
-    if (!stored) return null
-    try {
-      return JSON.parse(stored) as User
-    } catch {
-      // Corrupted data — start fresh
-      return null
-    }
-  })
-
-  const persistUser = useCallback((newUser: User) => {
-    // Save to localStorage so the user stays logged in across browser sessions
-    localStorage.setItem('siteready_user', JSON.stringify(newUser))
-    // Also store the token separately — the Axios interceptor reads it from here
-    localStorage.setItem('siteready_token', newUser.token)
-    setUser(newUser)
-  }, [])
-
-  const login = useCallback(async (email: string, password: string) => {
-    // POST credentials to backend, receive a JWT + user object
-    const response = await api.post<User>('/auth/login', { email, password })
-    persistUser(response.data)
-  }, [persistUser])
-
-  const loginWithToken = useCallback(async (token: string) => {
-    // The token came from the Google OAuth redirect — decode user info from the
-    // /auth/me endpoint rather than trusting a client-side JWT decode
-    localStorage.setItem('siteready_token', token)
-    const response = await api.get<User>('/auth/me')
-    persistUser({ ...response.data, token })
-  }, [persistUser])
-
-  const logout = useCallback(() => {
-    localStorage.removeItem('siteready_user')
-    localStorage.removeItem('siteready_token')
-    setUser(null)
-    // Hard redirect so all in-memory state is cleared
-    window.location.href = '/login'
-  }, [])
-
-  const value: AuthContextValue = {
-    user,
-    login,
-    loginWithToken,
-    logout,
-    isAuthenticated: user !== null,
-    isManager: user?.role === 'manager',
-    isStaff: user?.role === 'staff',
+function readCachedUser(): User | null {
+  try {
+    const stored = localStorage.getItem(CACHED_USER_KEY)
+    return stored ? (JSON.parse(stored) as User) : null
+  } catch {
+    return null // Corrupt data: treat as signed out
   }
+}
+
+function writeCachedUser(user: User | null): void {
+  if (user) localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user))
+  else localStorage.removeItem(CACHED_USER_KEY)
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Keeps React state and the offline cache in step
+  const updateUser = useCallback((nextUser: User | null) => {
+    setUser(nextUser)
+    writeCachedUser(nextUser)
+  }, [])
+
+  // On first load, ask the server who we are. The cookie is invisible to JavaScript,
+  // so this call is the only way to find out whether a session exists.
+  useEffect(() => {
+    let cancelled = false
+
+    async function restoreSession() {
+      try {
+        const response = await api.get<{ user: User }>('/auth/me')
+        if (!cancelled) updateUser(response.data.user)
+      } catch (error) {
+        if (cancelled) return
+        if (isNetworkError(error)) {
+          // Offline or server unreachable: keep the person working with their cached profile.
+          // Their cookie is still valid, and the server re-checks it on every request.
+          setUser(readCachedUser())
+        } else {
+          updateUser(null) // The server said no: the session is over
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    void restoreSession()
+    return () => {
+      cancelled = true
+    }
+  }, [updateUser])
+
+  // Sign out locally whenever any API call reports an expired session
+  useEffect(() => {
+    const handleExpired = () => updateUser(null)
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleExpired)
+  }, [updateUser])
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const response = await api.post<{ user: User }>('/auth/login', { email, password })
+      updateUser(response.data.user)
+      return response.data.user
+    },
+    [updateUser]
+  )
+
+  const register = useCallback(
+    async (details: RegisterDetails) => {
+      const response = await api.post<{ user: User }>('/auth/register', details)
+      updateUser(response.data.user)
+      return response.data.user
+    },
+    [updateUser]
+  )
+
+  const logout = useCallback(async () => {
+    try {
+      // The server removes the cookie. If we are offline this fails, but we still sign out locally.
+      await api.post('/auth/logout')
+    } catch {
+      // Intentionally ignored: local sign-out below is what matters to this device
+    }
+    updateUser(null)
+    // Remove cached API answers so the next person on a shared device cannot see them offline
+    if ('caches' in window) await caches.delete('api-cache')
+  }, [updateUser])
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, isLoading, login, register, logout }),
+    [user, isLoading, login, register, logout]
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-
-// --- Hook ---
-
-export function useAuthContext() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) {
-    throw new Error('useAuthContext must be used inside <AuthProvider>')
-  }
-  return ctx
-}
-
-export { AuthContext }

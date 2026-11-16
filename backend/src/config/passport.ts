@@ -9,9 +9,12 @@ import User from '../models/User';
 // Google sign-in is optional while developing: passport-google-oauth20 throws at
 // construction time if clientID is empty, which would stop the whole API from starting.
 // So the strategy is only registered when real credentials are present.
-export const isGoogleAuthConfigured = Boolean(
-  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-);
+// The placeholder text from .env.example ("your_google_client_id...") counts as "not set".
+const isRealValue = (value: string | undefined): value is string =>
+  Boolean(value) && !value!.startsWith('your_');
+
+export const isGoogleAuthConfigured =
+  isRealValue(process.env.GOOGLE_CLIENT_ID) && isRealValue(process.env.GOOGLE_CLIENT_SECRET);
 
 if (!isGoogleAuthConfigured) {
   console.warn('⚠️  GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set — Google sign-in is disabled.');

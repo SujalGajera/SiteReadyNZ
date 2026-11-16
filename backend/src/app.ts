@@ -5,6 +5,8 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 import authRoutes from './routes/authRoutes';
 import equipmentRoutes from './routes/equipmentRoutes';
@@ -13,6 +15,9 @@ import pushRoutes from './routes/pushRoutes';
 import { globalErrorHandler } from './middleware/errorHandler';
 
 const app: Application = express();
+
+// Adds standard protective HTTP headers (no MIME sniffing, no framing, and so on)
+app.use(helmet());
 
 // Allow requests only from the configured frontend origin.
 // Using a specific origin rather than '*' is required for security (CORS spec also
@@ -24,8 +29,12 @@ app.use(
   })
 );
 
-// Parse incoming JSON bodies so controllers receive plain objects
-app.use(express.json());
+// Parse incoming JSON bodies so controllers receive plain objects. The size cap stops
+// someone posting a huge body to exhaust memory.
+app.use(express.json({ limit: '1mb' }));
+
+// Makes the httpOnly login cookie available as req.cookies
+app.use(cookieParser());
 
 // Log every request to the console in development-friendly format
 app.use(morgan('dev'));

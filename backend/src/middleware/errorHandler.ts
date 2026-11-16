@@ -1,12 +1,14 @@
 // src/middleware/errorHandler.ts — Global Express error handler
 // Registered as the last middleware in app.ts so it catches errors passed via next(error).
-// Centralising error responses here means controllers never need to format error messages themselves.
+// Centralising error responses here means controllers never format error messages themselves.
 
 import { Request, Response, NextFunction } from 'express';
 
-// Custom error type that allows attaching an HTTP status code to any thrown error
+// Custom error type that allows attaching an HTTP status code to any thrown error.
+// `status` is what body-parser uses (for example 400 on malformed JSON).
 export interface AppError extends Error {
   statusCode?: number;
+  status?: number;
 }
 
 /**
@@ -19,13 +21,16 @@ export function globalErrorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  // Log the full error server-side so developers can diagnose issues
-  console.error('❌ Unhandled error:', error);
+  const statusCode = error.statusCode ?? error.status ?? 500;
 
-  // Use the status code attached to the error if available, otherwise default to 500
-  const statusCode = error.statusCode ?? 500;
+  if (statusCode >= 500) {
+    // Real server faults get the full stack trace in the log for debugging
+    console.error('❌ Unhandled error:', error);
+    // The client only gets a generic message so internals are never leaked
+    res.status(statusCode).json({ error: 'An unexpected server error occurred.' });
+    return;
+  }
 
-  res.status(statusCode).json({
-    error: error.message || 'An unexpected server error occurred.',
-  });
+  // Expected problems (wrong password, duplicate email, bad JSON) are safe to explain
+  res.status(statusCode).json({ error: error.message });
 }

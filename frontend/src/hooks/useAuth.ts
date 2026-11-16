@@ -1,8 +1,11 @@
-// Re-exports the AuthContext hook with a null guard.
-// Components import from here rather than from the context file directly,
-// so the usage pattern is consistent: const { user } = useAuth()
-import { useAuthContext } from '../context/AuthContext'
+import { useContext } from 'react'
+import { AuthContext, type AuthContextValue } from '@/context/AuthContext'
 
-export function useAuth() {
-  return useAuthContext()
+/** Access the signed-in user and the login / register / logout actions */
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used inside <AuthProvider>')
+  }
+  return context
 }

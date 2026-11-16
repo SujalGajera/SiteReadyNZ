@@ -1,20 +1,29 @@
-import { useOffline } from '@/context/OfflineContext'
-import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
+import { useAuth } from '@/hooks/useAuth'
 
-// Landing page placeholder. It is replaced by the real role-based home in Phase 2/3.
+/** Time-of-day greeting, using the device clock */
+function getGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+// Landing page after sign-in. Phase 3 and 4 replace the body with the equipment overview (managers)
+// and the inspection list (staff).
 export default function HomePage() {
-  const { isOnline } = useOffline()
+  const { user } = useAuth()
+  const firstName = user?.name.split(' ')[0]
 
   return (
-    <div className="max-w-xl">
-      <h1 className="text-2xl font-semibold">SiteReady NZ</h1>
+    <div className="max-w-2xl">
+      <h1 className="text-2xl font-semibold">
+        {getGreeting()}, {firstName}
+      </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        The app shell is running. You are currently {isOnline ? 'online' : 'offline'}.
+        {user?.role === 'manager'
+          ? 'Your equipment list and inspection schedule will appear here.'
+          : 'Your assigned inspections will appear here.'}
       </p>
-      <Button className="mt-5" onClick={() => toast.success('Toasts are working')}>
-        Test a toast
-      </Button>
     </div>
   )
 }

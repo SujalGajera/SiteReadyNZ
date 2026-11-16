@@ -1,133 +1,100 @@
-// src/controllers/authController.ts — Handles user registration, login, and Google OAuth
-// Controllers are thin: they validate the HTTP request, call the appropriate
-// service or model, and return the response. No business logic lives here.
+// src/controllers/authController.ts — HTTP handlers for register, login, logout, "who am I", and Google OAuth.
+// Controllers stay thin: read the request, call authService, set the cookie, send the response.
 
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
-import bcrypt from 'bcryptjs';
 
-import User, { IUser } from '../models/User';
+import { IUser } from '../models/User';
 import { signToken } from '../utils/jwtHelper';
+import { setAuthCookie, clearAuthCookie } from '../utils/authCookie';
+import { registerUser, authenticateUser, getUserById, RegisterInput } from '../services/authService';
 
 /**
- * POST /auth/register
- * Creates a new user account with an email and hashed password.
- * Returns a JWT and the user object (without passwordHash).
+ * Signs a token for the user, stores it in the httpOnly cookie, and returns it in the
+ * body too. The body copy exists for Postman and API testing; the React app ignores it.
  */
-export async function register(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+function startSession(res: Response, user: IUser): string {
+  const token = signToken(user.id as string, user.role);
+  setAuthCookie(res, token);
+  return token;
+}
+
+/** Sends a 400 and returns true when the route's validation rules found a problem */
+function rejectIfInvalid(req: Request, res: Response): boolean {
+  const validationErrors = validationResult(req);
+  if (validationErrors.isEmpty()) return false;
+
+  // One readable sentence for the UI, plus the per-field detail for forms
+  const fieldErrors = validationErrors.array().map((issue) => ({
+    field: issue.type === 'field' ? issue.path : 'request',
+    message: issue.msg as string,
+  }));
+  res.status(400).json({ error: fieldErrors[0].message, errors: fieldErrors });
+  return true;
+}
+
+/** POST /auth/register — create an account and sign the user in (201) */
+export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    // Reject the request immediately if express-validator found any problems
-    const validationErrors = validationResult(req);
-    if (!validationErrors.isEmpty()) {
-      res.status(400).json({ errors: validationErrors.array() });
-      return;
-    }
+    if (rejectIfInvalid(req, res)) return;
 
-    const { name, email, password, role } = req.body as {
-      name: string;
-      email: string;
-      password: string;
-      role?: 'manager' | 'staff';
-    };
+    const user = await registerUser(req.body as RegisterInput);
+    const token = startSession(res, user);
 
-    // Check if an account with this email already exists before attempting to create one
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      res.status(409).json({ error: 'An account with this email already exists.' });
-      return;
-    }
-
-    // Hash the password with bcrypt — 12 salt rounds is the AGENT_RULES minimum
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    const newUser = await User.create({
-      name,
-      email: email.toLowerCase(),
-      passwordHash,
-      role: role ?? 'manager',
-    });
-
-    // Sign a JWT for the new user so they are immediately logged in after registering
-    const token = signToken(newUser.id as string, newUser.role);
-
-    // Status 201 — a new resource was created
-    res.status(201).json({ token, user: newUser });
+    res.status(201).json({ token, user });
   } catch (error) {
-    next(error); // Pass unexpected errors to the global error handler
+    next(error);
   }
 }
 
-/**
- * POST /auth/login
- * Verifies email + password and returns a JWT on success.
- */
-export async function login(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+/** POST /auth/login — check credentials and sign the user in (200) */
+export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const validationErrors = validationResult(req);
-    if (!validationErrors.isEmpty()) {
-      res.status(400).json({ errors: validationErrors.array() });
-      return;
-    }
+    if (rejectIfInvalid(req, res)) return;
 
     const { email, password } = req.body as { email: string; password: string };
+    const user = await authenticateUser(email, password);
+    const token = startSession(res, user);
 
-    // Find the user and explicitly select passwordHash — it is excluded by toJSON but
-    // we need it here to do the comparison
-    const user = await User.findOne({ email: email.toLowerCase() }).select(
-      '+passwordHash'
-    );
-
-    if (!user) {
-      // Use a vague error message to avoid revealing which emails are registered
-      res.status(401).json({ error: 'Invalid email or password.' });
-      return;
-    }
-
-    const passwordIsCorrect = await user.comparePassword(password);
-    if (!passwordIsCorrect) {
-      res.status(401).json({ error: 'Invalid email or password.' });
-      return;
-    }
-
-    const token = signToken(user.id as string, user.role);
-
-    // Status 200 — successful read/action, no new resource created
     res.status(200).json({ token, user });
   } catch (error) {
     next(error);
   }
 }
 
+/** POST /auth/logout — remove the login cookie (204, no body) */
+export function logout(_req: Request, res: Response): void {
+  clearAuthCookie(res);
+  res.status(204).send();
+}
+
 /**
- * GET /auth/google/callback
- * Called by Passport after Google OAuth succeeds.
- * Signs a JWT for the Google-authenticated user and redirects the browser
- * back to the frontend with the token in the query string.
+ * GET /auth/me — returns the signed-in user. The frontend calls this on every page load
+ * to restore the session, since it cannot read the httpOnly cookie itself.
  */
-export function googleCallback(
-  req: Request,
-  res: Response
-): void {
-  // Passport attaches the user to req.user after the Google strategy runs
-  const user = req.user as IUser;
+export async function getCurrentUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    // requireAuthentication guarantees req.user exists on this route
+    const user = await getUserById(req.user!.id);
+    res.status(200).json({ user });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /auth/google/callback — Passport has already verified the Google sign-in.
+ * Start a session and send the browser back to the app. The token travels only in the
+ * httpOnly cookie, never in the URL, so it cannot leak through browser history or logs.
+ */
+export function googleCallback(req: Request, res: Response): void {
+  const user = req.user as unknown as IUser | undefined;
 
   if (!user) {
-    // If Passport did not attach a user, the OAuth flow failed
     res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
     return;
   }
 
-  const token = signToken(user.id as string, user.role);
-
-  // Redirect the browser to the frontend dashboard with the token.
-  // The frontend reads the token from the URL and stores it.
-  res.redirect(`${process.env.CLIENT_URL}/auth/callback?token=${token}`);
+  startSession(res, user);
+  res.redirect(`${process.env.CLIENT_URL}/`);
 }
