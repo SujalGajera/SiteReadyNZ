@@ -1,4 +1,4 @@
-import { LayoutGrid, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { LayoutGrid, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react'
 import type { UserRole } from '@/types'
 
 export interface NavItem {
@@ -14,10 +14,5 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { label: 'Overview', to: '/', icon: LayoutGrid, roles: ['staff'] },
   { label: 'Equipment', to: '/equipment', icon: ShieldCheck, roles: ['manager'] },
+  { label: 'Staff', to: '/staff', icon: UsersRound, roles: ['manager'] },
 ]
-
-/** Friendly page names for the breadcrumb in the top bar */
-export const routeLabels: Record<string, string> = {
-  '': 'Overview',
-  equipment: 'Equipment',
-}

@@ -15,7 +15,7 @@
 | **Stack** | React (Vite) + Node.js/Express + MongoDB |
 | **Auth** | JWT + Google OAuth 2.0 |
 | **Styling** | Tailwind CSS + ShadCN UI |
-| **Animation** | Framer Motion (Emil Kowalski principles) |
+| **Animation** | Motion (motion.dev, the successor to Framer Motion), Emil Kowalski principles |
 | **Testing** | Jest + React Testing Library + Postman |
 | **Push** | Web Push API (VAPID keys) |
 | **Offline** | Service Workers + IndexedDB (Workbox) |
@@ -193,12 +193,12 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 > Think like an Apple designer + Emil Kowalski. Every interaction should feel **intentional, smooth, and inevitable**.
 
 ### Visual Language
-- **Colour palette:** Neutral base (zinc/slate grays), one strong accent (emerald green — safety brand), semantic status colours: `green` OK, `amber` Due Soon, `red` Overdue/Expired
-- **Typography:** System font stack (SF Pro on Mac/iOS, Segoe on Windows) or Inter (Google Fonts). No decorative fonts.
+- **Colour palette (taken from the logo):** ink green `#1E3727` for actions and text, fern `#3B5B41`, kowhai orange `#DD9633` used sparingly for "where you are" and focus, on warm paper `#FCF9F6` / canvas. Status colours: fern green Ready, kowhai Due soon, burnt orange Check overdue, brick red Expired.
+- **Typography:** Bricolage Grotesque for headlines, Instrument Sans for text. Both are bundled with the app so they work offline. No decorative fonts.
 - **Spacing:** 4px base unit. Use Tailwind spacing scale consistently (p-4, gap-6, etc.).
-- **Border radius:** Rounded but not bubbly — `rounded-lg` (8px) for cards, `rounded-md` (6px) for inputs, `rounded-full` for badges.
+- **Border radius:** `rounded-lg` (10px) for buttons and inputs, `rounded-xl` / `rounded-2xl` for cards and panels, `rounded-full` for badges.
 - **Shadows:** Subtle. `shadow-sm` for cards at rest. `shadow-md` on hover. Never heavy drop shadows.
-- **Iconography:** Lucide Icons (ships with ShadCN) only. Consistent 20px or 24px size. Never mix icon libraries.
+- **Iconography:** Lucide Icons (ships with ShadCN) only, used sparingly: navigation, menus and actions. Statuses use words and colour, not icons. Never mix icon libraries.
 
 ### Motion Rules (Emil Kowalski Principles)
 - **Ask before animating:** Every animation must have a clear purpose. If in doubt, don't animate.

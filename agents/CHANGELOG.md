@@ -604,6 +604,46 @@ Keeping push routes lean — there are only two endpoints and both are security-
 
 ---
 
+## Design pass and rules update (between Phase 3 and Phase 4)
+
+**Why:** the first design looked like a generic template. It was rebuilt from the real logo, and three product rules were changed to match how a real product works and what the rubric says.
+
+### Rubric check
+The rubric asks for "secure authentication and authorization" and does not say users choose their own role. It also gives no day counts for statuses. So: roles work like a real product, and statuses follow industry practice.
+
+### Roles (changed)
+- Public sign-up always creates a **manager**. The role field was removed from the form and the API ignores it.
+- Managers create **staff** accounts (`POST /api/staff`, manager only) with a first password they hand over in person.
+- Each manager has a **workspace** (`organisationId`). Staff and equipment belong to it. Every equipment and staff query is limited to the caller's workspace, so one business cannot see another's data. The workspace id is carried in the login token; tokens without one are refused.
+- Files: `services/staffService.ts`, `controllers/staffController.ts`, `routes/staffRoutes.ts`, `models/User.ts` (`organisationId`), `models/Equipment.ts` (`organisationId`, serial numbers unique per workspace), `utils/jwtHelper.ts`, `services/equipmentService.ts`.
+
+### Status rule (changed, Strategy pattern kept)
+Based on common compliance practice (NZS 4503 for extinguishers, AS/NZS 1851 for servicing):
+- **Expired:** past the expiry date. Highest priority.
+- **Check overdue:** not expired, but the routine check is late (30 days for extinguishers, first aid kits and AEDs; 90 days for signs and other items).
+- **Due soon:** expires within 30 days.
+- **Ready:** in date and checked.
+`statusCalculator.ts` (backend and frontend) now takes `{ daysUntilExpiry, daysUntilInspectionDue }`, so the rule can still be swapped as one function. Recording an inspection (`lastInspectedAt`) clears "check overdue".
+
+### Design system
+- **Logo:** cut from the supplied artwork into transparent PNGs (`public/brand/`), PWA icons and a maskable icon regenerated from the shield.
+- **Colour:** measured from the logo: ink `#1E3727`, fern `#3B5B41`, kowhai `#DD9633`, paper `#FCF9F6`. Defined as CSS variables in `index.css`.
+- **Type:** Bricolage Grotesque (headlines) and Instrument Sans (text), both bundled.
+- **Signature texture:** topographic contour lines generated from an invented height map (`assets/contours.ts`, `components/brand/ContourBackdrop.tsx`). They echo the mountains in the logo and draw themselves in on the sign-in panel.
+- **Motion:** moved from Framer Motion to **Motion** (`motion/react`). Used for: the dark nav pill that glides between links (shared layout), rows that glide when filtered or sorted, the readiness ring and bar filling in, the offline banner sliding, form errors fading in. All animation honours the device's "reduce motion" setting through `MotionConfig`. Only transform, opacity and SVG attributes are animated.
+- **Layout:** sidebar with a faint contour band and user card; page headers with a fading contour band; no top bar on desktop. Phones get a slim header and a Vaul drawer.
+
+### Screens
+- **Sign in / Set up your workspace:** deep green panel with the logo on a slightly tilted paper "site sign", a readiness preview card, and the form.
+- **Equipment ("What needs attention"):** `ReadinessHero` (ring, segmented bar, status legend that filters the list), `EquipmentToolbar` (search, status filter, sort), `EquipmentRow` ledger lines with a coloured status edge, a type tile (FE, FA, AED, SGN), an expiry "life bar" and an actions menu.
+- **Staff ("Your team"):** staff cards and an add slide-over.
+- **Equipment detail**, **staff home** and all empty states restyled.
+
+### Checks run
+47 API checks (auth, roles, staff, equipment CRUD, every status rule, workspace isolation) and 43 browser checks in real Chrome (sign-in, set-up, cookie flags, readiness numbers, search, filter, sort, add, edit, delete, detail, staff management, role redirects, sign out, phone layout) pass with no console errors.
+
+---
+
 ## Phase 4 — Feature 2: Offline Inspection Checklist
 
 *(Entries will be added here as Phase 4 files are created)*

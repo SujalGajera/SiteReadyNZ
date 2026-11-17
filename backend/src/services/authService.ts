@@ -3,7 +3,7 @@
 // and how a login is checked (AGENT_RULES: controllers thin, services thick).
 
 import bcrypt from 'bcryptjs';
-import User, { IUser } from '../models/User';
+import User, { IUser, UserRole } from '../models/User';
 import { AppError } from '../middleware/errorHandler';
 
 // bcrypt cost factor. 12 is the minimum required by AGENT_RULES.
@@ -13,7 +13,6 @@ export interface RegisterInput {
   name: string;
   email: string;
   password: string;
-  role?: 'manager' | 'staff';
 }
 
 // Builds an error that errorHandler turns into the right HTTP status
@@ -23,8 +22,16 @@ function httpError(statusCode: number, message: string): AppError {
   return error;
 }
 
-/** Creates an email/password account. Throws a 409 if the email is already used. */
-export async function registerUser(input: RegisterInput): Promise<IUser> {
+/**
+ * Creates an email/password account. Throws a 409 if the email is already used.
+ * The role is NOT part of the input a client can send. Public sign-up always creates a manager;
+ * managers create staff accounts through the staff service, which passes "staff" here.
+ */
+export async function registerUser(
+  input: RegisterInput,
+  role: UserRole = 'manager',
+  organisationId?: string
+): Promise<IUser> {
   const email = input.email.trim().toLowerCase();
 
   const existingUser = await User.findOne({ email });
@@ -38,7 +45,8 @@ export async function registerUser(input: RegisterInput): Promise<IUser> {
     name: input.name.trim(),
     email,
     passwordHash,
-    role: input.role ?? 'manager',
+    role,
+    organisationId,
   });
 }
 
@@ -65,4 +73,12 @@ export async function getUserById(userId: string): Promise<IUser> {
     throw httpError(401, 'This account no longer exists. Please sign in again.');
   }
   return user;
+}
+
+/**
+ * The workspace id to put in this user's token. Accounts created before workspaces existed have
+ * none stored; a manager's workspace then falls back to their own id, which is what new managers get.
+ */
+export function getOrganisationId(user: IUser): string {
+  return String(user.organisationId ?? user._id);
 }

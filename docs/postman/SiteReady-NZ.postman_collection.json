@@ -29,7 +29,7 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Manager\",\n  \"email\": \"postman.manager@example.com\",\n  \"password\": \"a-good-password-1\",\n  \"role\": \"manager\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Manager\",\n  \"email\": \"postman.manager@example.com\",\n  \"password\": \"a-good-password-1\"\n}" },
             "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
           }
         },
@@ -53,6 +53,26 @@
           "name": "GET /auth/me (expect 200)",
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"] } }],
           "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] } }
+        }
+      ]
+    },
+    {
+      "name": "Staff",
+      "item": [
+        {
+          "name": "POST /api/staff (manager creates staff, expect 201)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('201 Created', () => pm.response.to.have.status(201));", "pm.test('role is staff', () => pm.expect(pm.response.json().role).to.equal('staff'));"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Tane Walker\",\n  \"email\": \"tane.walker@example.com\",\n  \"password\": \"a-good-password-1\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/staff", "host": ["{{baseUrl}}"], "path": ["api", "staff"] }
+          }
+        },
+        {
+          "name": "GET /api/staff (expect 200 with array)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('body is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/staff", "host": ["{{baseUrl}}"], "path": ["api", "staff"] } }
         }
       ]
     },

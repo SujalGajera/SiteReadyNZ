@@ -7,9 +7,9 @@ import * as equipmentService from '../services/equipmentService';
 import type { EquipmentInput } from '../services/equipmentService';
 
 /** GET /api/equipment — everything, soonest expiry first (200) */
-export async function getAllEquipment(_req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getAllEquipment(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    res.status(200).json(await equipmentService.listEquipment());
+    res.status(200).json(await equipmentService.listEquipment(req.user!.orgId));
   } catch (error) {
     next(error);
   }
@@ -19,7 +19,7 @@ export async function getAllEquipment(_req: Request, res: Response, next: NextFu
 export async function getEquipmentById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (rejectIfInvalid(req, res)) return;
-    res.status(200).json(await equipmentService.getEquipment(req.params.id));
+    res.status(200).json(await equipmentService.getEquipment(req.params.id, req.user!.orgId));
   } catch (error) {
     next(error);
   }
@@ -29,7 +29,7 @@ export async function getEquipmentById(req: Request, res: Response, next: NextFu
 export async function createEquipment(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (rejectIfInvalid(req, res)) return;
-    const created = await equipmentService.createEquipment(req.body as EquipmentInput, req.user!.id);
+    const created = await equipmentService.createEquipment(req.body as EquipmentInput, req.user!.id, req.user!.orgId);
     res.status(201).json(created);
   } catch (error) {
     next(error);
@@ -40,7 +40,7 @@ export async function createEquipment(req: Request, res: Response, next: NextFun
 export async function updateEquipment(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (rejectIfInvalid(req, res)) return;
-    const updated = await equipmentService.updateEquipment(req.params.id, req.body as Partial<EquipmentInput>);
+    const updated = await equipmentService.updateEquipment(req.params.id, req.user!.orgId, req.body as Partial<EquipmentInput>);
     res.status(200).json(updated);
   } catch (error) {
     next(error);
@@ -51,7 +51,7 @@ export async function updateEquipment(req: Request, res: Response, next: NextFun
 export async function deleteEquipment(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (rejectIfInvalid(req, res)) return;
-    await equipmentService.deleteEquipment(req.params.id);
+    await equipmentService.deleteEquipment(req.params.id, req.user!.orgId);
     res.status(204).send();
   } catch (error) {
     next(error);

@@ -7,7 +7,7 @@ import type { Equipment, EquipmentFormValues } from '@/types'
  * by the service worker while offline can be days old, and an item may have expired since.
  */
 function withCurrentStatus(equipment: Equipment): Equipment {
-  return { ...equipment, status: calculateEquipmentStatus(equipment.expiryDate) }
+  return { ...equipment, status: calculateEquipmentStatus(equipment) }
 }
 
 export async function fetchEquipment(): Promise<Equipment[]> {

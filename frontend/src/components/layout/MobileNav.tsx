@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
 import { BrandMark } from './BrandMark'
 import { NavLinks } from './NavLinks'
+import { UserCard } from './UserCard'
 
 /**
  * Phone navigation: a Vaul bottom sheet (AGENT_RULES: Vaul for mobile drawers).
- * Vaul gives drag-to-dismiss and the native-feeling spring for free.
+ * Vaul gives drag-to-dismiss and a native-feeling spring.
  */
 export function MobileNav() {
   const [open, setOpen] = useState(false)
@@ -20,14 +21,15 @@ export function MobileNav() {
         </Button>
       </DrawerTrigger>
       <DrawerContent>
-        <div className="px-5 pb-8 pt-2">
+        <div className="space-y-4 px-4 pb-6 pt-2">
           <DrawerTitle asChild>
-            <div className="mb-4">
+            <div className="px-1">
               <BrandMark />
             </div>
           </DrawerTitle>
           <DrawerDescription className="sr-only">Main navigation</DrawerDescription>
-          <NavLinks onNavigate={() => setOpen(false)} />
+          <NavLinks group="drawer" onNavigate={() => setOpen(false)} />
+          <UserCard />
         </div>
       </DrawerContent>
     </Drawer>

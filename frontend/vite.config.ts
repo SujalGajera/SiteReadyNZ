@@ -16,20 +16,21 @@ export default defineConfig({
     VitePWA({
       // Automatically updates the service worker when new content is available
       registerType: 'autoUpdate',
-      includeAssets: ['icons/*.png'],
+      includeAssets: ['icons/*.png', 'brand/*.png', 'favicon.png'],
       // Lets us see the service worker while running `npm run dev`, not only after a build
       devOptions: { enabled: true },
       manifest: {
         name: 'SiteReady NZ',
         short_name: 'SiteReady',
         description: 'Emergency equipment inspection management for NZ businesses',
-        theme_color: '#1f5a43',
-        background_color: '#f5f3ee',
+        theme_color: '#1e3727',
+        background_color: '#fcf9f6',
         display: 'standalone',
         start_url: '/',
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

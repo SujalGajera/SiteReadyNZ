@@ -4,19 +4,17 @@ import { FormField } from '@/components/forms/FormField'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 import { AuthDivider } from '@/components/auth/AuthDivider'
 import { FormError } from '@/components/forms/FormError'
-import { RoleChooser } from '@/components/auth/RoleChooser'
 import { Button } from '@/components/ui/button'
 import { useRegisterForm } from '@/hooks/useAuthForms'
 import { PASSWORD_MIN_LENGTH } from '@/utils/validators'
 
 export default function RegisterPage() {
-  const { values, errors, setValue, markTouched, role, setRole, formError, isSubmitting, handleSubmit } =
-    useRegisterForm()
+  const { values, errors, setValue, markTouched, formError, isSubmitting, handleSubmit } = useRegisterForm()
 
   return (
     <AuthLayout
-      title="Create your account"
-      subtitle="It takes under a minute."
+      title="Set up your workspace"
+      subtitle="You will be the manager. Add your staff once you are in."
       footer={
         <>
           Already have an account?{' '}
@@ -57,7 +55,6 @@ export default function RegisterPage() {
           error={errors.password}
           hint={`At least ${PASSWORD_MIN_LENGTH} characters.`}
         />
-        <RoleChooser value={role} onChange={setRole} />
         <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
           {isSubmitting ? 'Creating account' : 'Create account'}
         </Button>

@@ -12,6 +12,7 @@ import authRoutes from './routes/authRoutes';
 import equipmentRoutes from './routes/equipmentRoutes';
 import inspectionRoutes from './routes/inspectionRoutes';
 import pushRoutes from './routes/pushRoutes';
+import staffRoutes from './routes/staffRoutes';
 import { globalErrorHandler } from './middleware/errorHandler';
 
 const app: Application = express();
@@ -47,6 +48,7 @@ app.use('/auth', authRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/inspections', inspectionRoutes);
 app.use('/api/push', pushRoutes);
+app.use('/api/staff', staffRoutes);
 
 // Global error handler must be registered LAST so Express recognises it as an
 // error-handling middleware (four-argument signature)

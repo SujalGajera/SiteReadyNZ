@@ -4,9 +4,8 @@ import { Topbar } from './Topbar'
 import { OfflineBanner } from './OfflineBanner'
 
 /**
- * Frame around every signed-in page: sidebar on the left (desktop), top bar,
- * offline banner, then the page itself. Phones get the drawer menu instead of the sidebar.
- * Used as a layout route, so the current page arrives through <Outlet />.
+ * Frame around every signed-in page: sidebar on the left (desktop), a slim header (phones),
+ * the offline banner, then the page itself, which arrives through <Outlet />.
  */
 export function AppShell() {
   return (
@@ -15,7 +14,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
         <OfflineBanner />
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+        <main className="flex-1 px-4 pb-16 pt-6 md:px-10 md:pt-9">
           <Outlet />
         </main>
       </div>

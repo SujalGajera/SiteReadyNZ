@@ -3,44 +3,53 @@
 @tailwind utilities;
 
 /*
-  SiteReady NZ palette.
-  The idea: a site-office look. Warm paper for the background, near-black green ink
-  for text, one deep forest green for actions, and brick / ochre for warnings.
+  SiteReady NZ design tokens, taken from the logo artwork:
+    ink     #1E3727  wordmark, primary actions
+    fern    #3B5B41  shield
+    kowhai  #DD9633  the check mark, used sparingly for "where you are" and focus
+    paper   #FCF9F6  the logo's own background
   Values are "H S% L%" so Tailwind can add opacity (bg-primary/10).
 */
 @layer base {
   :root {
-    --background: 43 24% 95%;        /* paper */
-    --foreground: 140 14% 13%;       /* green-black ink */
-    --card: 40 30% 99%;
-    --card-foreground: 140 14% 13%;
-    --popover: 40 30% 99%;
-    --popover-foreground: 140 14% 13%;
+    --canvas: 36 26% 93%;            /* the page behind the cards, a touch deeper than paper */
+    --background: 36 26% 93%;
+    --foreground: 142 29% 14%;
+    --card: 30 50% 98%;              /* paper */
+    --card-foreground: 142 29% 14%;
+    --popover: 30 50% 98%;
+    --popover-foreground: 142 29% 14%;
 
-    --primary: 156 49% 24%;          /* forest green */
-    --primary-foreground: 43 30% 96%;
-    --secondary: 43 18% 90%;
-    --secondary-foreground: 140 14% 18%;
-    --muted: 43 18% 91%;
-    --muted-foreground: 100 5% 38%;
-    --accent: 135 20% 90%;           /* pale sage, used for selected rows / hover */
-    --accent-foreground: 156 49% 20%;
+    --primary: 142 29% 17%;          /* ink green */
+    --primary-foreground: 30 50% 97%;
+    --secondary: 36 22% 89%;
+    --secondary-foreground: 142 29% 17%;
+    --muted: 36 22% 89%;
+    --muted-foreground: 140 9% 36%;
+    --accent: 128 16% 90%;           /* pale fern, for hover and selected rows */
+    --accent-foreground: 142 29% 15%;
 
-    --destructive: 7 62% 42%;
-    --destructive-foreground: 43 30% 97%;
+    --destructive: 355 62% 36%;
+    --destructive-foreground: 30 50% 97%;
 
-    --border: 44 18% 84%;
-    --input: 44 16% 80%;
-    --ring: 156 49% 28%;
-    --radius: 0.5rem;
+    --border: 38 18% 83%;
+    --input: 38 14% 74%;
+    --ring: 35 71% 53%;              /* kowhai focus ring */
+    --radius: 0.625rem;
 
-    /* Status colours */
-    --ok: 148 52% 28%;
-    --ok-soft: 140 30% 90%;
-    --warn: 30 80% 34%;              /* ochre, readable on paper */
-    --warn-soft: 38 78% 91%;
-    --danger: 7 62% 42%;             /* brick */
-    --danger-soft: 8 70% 94%;
+    --fern: 131 21% 29%;
+    --kowhai: 35 71% 53%;
+    --kowhai-soft: 38 85% 90%;
+
+    /* Status colours. Each has a strong colour for text and bars, and a soft one for fills. */
+    --ok: 131 34% 27%;
+    --ok-soft: 125 24% 89%;
+    --warn: 32 82% 29%;              /* due soon (kowhai family, dark enough to read on paper) */
+    --warn-soft: 40 88% 87%;
+    --overdue: 17 76% 38%;           /* routine check missed */
+    --overdue-soft: 17 78% 91%;
+    --danger: 355 62% 36%;           /* expired */
+    --danger-soft: 355 55% 93%;
   }
 
   * {
@@ -49,34 +58,31 @@
 
   html {
     -webkit-tap-highlight-color: transparent;
+    scrollbar-gutter: stable;
   }
 
   body {
     @apply bg-background font-sans text-foreground antialiased;
-    font-feature-settings: 'cv11', 'ss01'; /* Inter: single-storey a, cleaner digits */
+    font-feature-settings: 'ss01', 'cv11';
   }
 
-  /* Tighter tracking on headings reads as more deliberate than the default */
-  h1, h2, h3 {
-    @apply tracking-tight;
+  /* Headlines use Bricolage Grotesque; it has a slightly hand-cut feel that suits the logo */
+  h1, h2, h3, .font-display {
+    font-family: 'Bricolage Grotesque Variable', 'Instrument Sans Variable', system-ui, sans-serif;
+    letter-spacing: -0.02em;
   }
 
-  /* Visible keyboard focus everywhere, hidden for mouse users */
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
+
+  ::selection {
+    background: hsl(var(--kowhai) / 0.35);
+  }
 }
 
-/* Thin scrollbars so long tables and checklists feel lighter */
+/* Thin scrollbars so long lists feel lighter */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background-color: hsl(var(--border)); border-radius: 9999px; }
 ::-webkit-scrollbar-thumb:hover { background-color: hsl(var(--input)); }
-
-/* Respect the OS "reduce motion" setting for every animation in the app */
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}

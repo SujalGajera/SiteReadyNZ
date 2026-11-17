@@ -6,6 +6,7 @@ import RegisterPage from '@/pages/auth/Register'
 import HomePage from '@/pages/Home'
 import EquipmentDashboardPage from '@/pages/manager/Dashboard'
 import EquipmentDetailPage from '@/pages/manager/EquipmentDetail'
+import StaffListPage from '@/pages/manager/StaffList'
 
 // Route table. Manager-only and staff-only pages are added as <ProtectedRoute roles={[...]}> groups
 // in the phases that build them.
@@ -27,6 +28,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['manager']} />}>
             <Route path="/equipment" element={<EquipmentDashboardPage />} />
             <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
+            <Route path="/staff" element={<StaffListPage />} />
           </Route>
         </Route>
       </Route>

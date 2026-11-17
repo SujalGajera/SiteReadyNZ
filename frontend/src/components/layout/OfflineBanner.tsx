@@ -1,12 +1,11 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { CloudOff } from 'lucide-react'
 import { useOffline } from '@/context/OfflineContext'
 
 /**
- * Amber strip that slides down when the connection drops and slides away when it
- * returns. No dismiss button on purpose (AGENT_RULES): the user should always be
- * able to see that they are working offline.
- * Only transform and opacity are animated, so nothing reflows while it moves.
+ * Kowhai-coloured strip that slides down when the connection drops and away when it returns.
+ * No dismiss button on purpose (AGENT_RULES): the user should always be able to see that they
+ * are working offline. Only transform and opacity are animated, so nothing reflows.
  */
 export function OfflineBanner() {
   const { isOnline } = useOffline()
@@ -21,15 +20,15 @@ export function OfflineBanner() {
           initial={{ y: '-100%', opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: '-100%', opacity: 0 }}
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          // z-20 keeps it under the top bar (z-30) so it appears to slide out from beneath it
-          className="sticky top-14 z-20 flex flex-wrap items-center justify-between gap-x-6 gap-y-0.5 border-b border-warn/25 bg-warn-soft px-4 py-2.5 text-sm text-warn md:top-16 md:px-8"
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          // Sits just under the phone header (h-14); on desktop there is no header so it hugs the top
+          className="sticky top-14 z-20 flex flex-wrap items-center justify-between gap-x-6 gap-y-0.5 border-b border-kowhai/40 bg-kowhai-soft px-4 py-2.5 text-sm text-warn md:top-0 md:px-8"
         >
-          <span className="flex items-center gap-2 font-medium">
+          <span className="flex items-center gap-2 font-semibold">
             <CloudOff className="size-4 shrink-0" aria-hidden="true" />
             You are offline
           </span>
-          <span className="text-warn/90">Your work is saved on this device and will upload when you reconnect.</span>
+          <span>Your work is saved on this device and uploads when you reconnect.</span>
         </motion.div>
       )}
     </AnimatePresence>

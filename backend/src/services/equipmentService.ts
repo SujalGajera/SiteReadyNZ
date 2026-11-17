@@ -1,11 +1,12 @@
 // src/services/equipmentService.ts — Business rules for equipment records.
-// Controllers call these functions and only handle HTTP. Phase 7 will put a repository
-// behind this file so the rules here never need to know about Mongoose.
+// Every function takes the caller's workspace id (`organisationId`) and only ever touches
+// that workspace's items, so one business can never read or change another's equipment.
+// Phase 7 will put a repository behind this file so the rules here never need to know about Mongoose.
 
 import Equipment, { IEquipment, EquipmentType } from '../models/Equipment';
 import { AppError } from '../middleware/errorHandler';
 
-/** The fields a client is allowed to send. `status` and `_id` are deliberately missing. */
+/** The fields a client is allowed to send. `status`, `_id` and `organisationId` are deliberately missing. */
 export interface EquipmentInput {
   name: string;
   type: EquipmentType;
@@ -44,35 +45,36 @@ function pickWritableFields(input: Partial<EquipmentInput>): Record<string, unkn
 }
 
 /** Soonest expiry first, so the most urgent items are at the top */
-export async function listEquipment(): Promise<IEquipment[]> {
-  return Equipment.find().populate('assignedManagerId', 'name').sort({ expiryDate: 1 });
+export async function listEquipment(organisationId: string): Promise<IEquipment[]> {
+  return Equipment.find({ organisationId }).populate('assignedManagerId', 'name').sort({ expiryDate: 1 });
 }
 
-export async function getEquipment(id: string): Promise<IEquipment> {
-  const equipment = await Equipment.findById(id).populate('assignedManagerId', 'name');
+export async function getEquipment(id: string, organisationId: string): Promise<IEquipment> {
+  const equipment = await Equipment.findOne({ _id: id, organisationId }).populate('assignedManagerId', 'name');
+  // An item in someone else's workspace looks exactly like one that does not exist
   if (!equipment) throw httpError(404, 'Equipment not found.');
   return equipment;
 }
 
-export async function createEquipment(input: EquipmentInput, managerId: string): Promise<IEquipment> {
+export async function createEquipment(input: EquipmentInput, managerId: string, organisationId: string): Promise<IEquipment> {
   // The manager who adds an item is recorded as its owner
-  return Equipment.create({ ...pickWritableFields(input), assignedManagerId: managerId });
+  return Equipment.create({ ...pickWritableFields(input), assignedManagerId: managerId, organisationId });
 }
 
 /**
  * Uses find + save (not findByIdAndUpdate) so the pre-save hook runs and the
  * status is recalculated from the new expiry date.
  */
-export async function updateEquipment(id: string, input: Partial<EquipmentInput>): Promise<IEquipment> {
-  const equipment = await Equipment.findById(id);
+export async function updateEquipment(id: string, organisationId: string, input: Partial<EquipmentInput>): Promise<IEquipment> {
+  const equipment = await Equipment.findOne({ _id: id, organisationId });
   if (!equipment) throw httpError(404, 'Equipment not found.');
 
   equipment.set(pickWritableFields(input));
   return equipment.save();
 }
 
-export async function deleteEquipment(id: string): Promise<void> {
-  const equipment = await Equipment.findById(id);
+export async function deleteEquipment(id: string, organisationId: string): Promise<void> {
+  const equipment = await Equipment.findOne({ _id: id, organisationId });
   if (!equipment) throw httpError(404, 'Equipment not found.');
   await equipment.deleteOne();
 }

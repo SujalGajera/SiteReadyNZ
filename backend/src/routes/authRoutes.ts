@@ -32,7 +32,6 @@ authRouter.post(
     body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 80 }).withMessage('Name is too long'),
     body('email').trim().isEmail().withMessage('A valid email address is required'),
     passwordRules,
-    body('role').optional().isIn(['manager', 'staff']).withMessage("Role must be 'manager' or 'staff'"),
   ],
   register
 );

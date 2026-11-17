@@ -8,13 +8,14 @@ import jwt from 'jsonwebtoken';
 export interface TokenPayload {
   id: string;   // MongoDB user document ID
   role: string; // 'manager' or 'staff' — copied here so role checks don't need a DB lookup
+  orgId: string; // The workspace this user belongs to. Every query is limited to it.
 }
 
 /**
  * Creates a signed JWT containing the user's ID and role.
  * The token expires after the duration set in JWT_EXPIRES_IN (default: 7 days).
  */
-export function signToken(userId: string, role: string): string {
+export function signToken(userId: string, role: string, orgId: string): string {
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
@@ -23,7 +24,7 @@ export function signToken(userId: string, role: string): string {
 
   const expiresIn = process.env.JWT_EXPIRES_IN ?? '7d';
 
-  return jwt.sign({ id: userId, role } satisfies TokenPayload, secret, {
+  return jwt.sign({ id: userId, role, orgId } satisfies TokenPayload, secret, {
     expiresIn,
   } as jwt.SignOptions);
 }
@@ -42,5 +43,11 @@ export function verifyToken(token: string): TokenPayload {
 
   // jwt.verify throws JsonWebTokenError / TokenExpiredError on failure
   const decoded = jwt.verify(token, secret) as TokenPayload;
+
+  // Tokens issued before workspaces existed have no orgId. Refusing them (instead of letting a
+  // missing id turn into "match everything" in a database query) forces a fresh sign-in.
+  if (!decoded.orgId) {
+    throw new Error('Token has no workspace. Please sign in again.');
+  }
   return decoded;
 }

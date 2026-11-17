@@ -38,3 +38,18 @@ export function describeDaysUntil(isoDate: string, now: Date = new Date()): stri
   if (days === -1) return 'yesterday'
   return days > 0 ? `in ${days} days` : `${Math.abs(days)} days ago`
 }
+
+/**
+ * How much of an item's life is left, from 1 (just bought) down to 0 (expired).
+ * It runs from the purchase date (or the day it was added) to the expiry date.
+ */
+export function lifeRemaining(
+  item: { expiryDate: string; purchaseDate?: string; createdAt?: string },
+  now: Date = new Date()
+): number {
+  const expiry = new Date(item.expiryDate).getTime()
+  const start = new Date(item.purchaseDate ?? item.createdAt ?? now.toISOString()).getTime()
+  const total = expiry - start
+  if (total <= 0) return 0
+  return Math.min(1, Math.max(0, (expiry - now.getTime()) / total))
+}

@@ -1,28 +1,26 @@
+import { Link } from 'react-router-dom'
+import { ContourBackdrop } from '@/components/brand/ContourBackdrop'
 import { BrandMark } from './BrandMark'
 import { NavLinks } from './NavLinks'
-import { useAuth } from '@/hooks/useAuth'
+import { UserCard } from './UserCard'
 
-/** Desktop sidebar (hidden below the md breakpoint, where the drawer takes over) */
+/** Desktop sidebar (hidden below the md breakpoint, where the top bar and drawer take over) */
 export function Sidebar() {
-  const { user } = useAuth()
-
   return (
-    <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-card/60 md:flex">
-      <div className="flex h-16 items-center px-5">
+    <aside className="sticky top-0 hidden h-screen w-[268px] shrink-0 flex-col overflow-hidden border-r bg-card md:flex">
+      {/* Faint contour lines rising from the bottom, a nod to the mountains in the logo */}
+      <ContourBackdrop className="absolute inset-x-0 bottom-0 h-3/5 w-full text-fern/[0.09] [mask-image:linear-gradient(to_top,black,transparent)]" />
+
+      <Link to="/" className="relative px-5 pb-4 pt-6" aria-label="SiteReady NZ home">
         <BrandMark />
+      </Link>
+
+      <div className="relative flex-1 px-3 pt-4">
+        <NavLinks group="sidebar" />
       </div>
 
-      <p className="px-5 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        Workspace
-      </p>
-      <div className="flex-1 px-3">
-        <NavLinks />
-      </div>
-
-      {/* Whose workspace this is, mirroring the wireframe's bottom-left card */}
-      <div className="m-3 rounded-lg border bg-background px-3 py-2.5">
-        <p className="text-[13px] font-semibold capitalize">{user?.role} workspace</p>
-        <p className="text-xs text-muted-foreground">Facility safety and compliance</p>
+      <div className="relative p-3">
+        <UserCard />
       </div>
     </aside>
   )

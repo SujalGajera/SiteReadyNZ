@@ -2,16 +2,20 @@
 // Covers both email/password accounts and Google OAuth accounts.
 // The same model is used for managers and staff; role controls what they can do.
 
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 // TypeScript interface describing the shape of a User document
+export type UserRole = 'manager' | 'staff';
+
 export interface IUser extends Document {
   name: string;
   email: string;
   passwordHash?: string; // Optional — Google-only users have no password
-  role: 'manager' | 'staff';
+  role: UserRole;
   googleId?: string;    // Set only when the user signs in via Google OAuth
+  /** The workspace this person belongs to. A manager's workspace is their own id; staff share their manager's. */
+  organisationId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(plainTextPassword: string): Promise<boolean>;
@@ -42,6 +46,7 @@ const userSchema = new Schema<IUser>(
       enum: ['manager', 'staff'],
       default: 'manager', // Default to manager so the first user who registers can manage equipment
     },
+    organisationId: { type: Schema.Types.ObjectId, index: true },
     googleId: {
       type: String,
       sparse: true, // Allow many documents where googleId is undefined without index conflicts
@@ -51,6 +56,15 @@ const userSchema = new Schema<IUser>(
     timestamps: true, // Automatically add createdAt and updatedAt fields
   }
 );
+
+// A new manager starts a workspace of their own, named after their own id.
+// Staff are given their manager's workspace id when the manager creates them.
+userSchema.pre('validate', function (next) {
+  if (this.isNew && this.role === 'manager' && !this.organisationId) {
+    this.organisationId = this._id as Types.ObjectId;
+  }
+  next();
+});
 
 // Instance method to compare a plain-text password against the stored bcrypt hash.
 // This lives on the model so the comparison logic is in one place and controllers stay thin.

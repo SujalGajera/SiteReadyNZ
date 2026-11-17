@@ -16,7 +16,7 @@ export function EquipmentFormSheet({ isOpen, item, onSave, onClose }: EquipmentF
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="flex w-full flex-col sm:max-w-md">
         <SheetHeader className="text-left">
-          <SheetTitle>{item ? 'Edit equipment' : 'Add equipment'}</SheetTitle>
+          <SheetTitle className="font-display text-2xl">{item ? 'Edit equipment' : 'Add equipment'}</SheetTitle>
           <SheetDescription>
             {item
               ? 'Changing the expiry date updates the status straight away.'

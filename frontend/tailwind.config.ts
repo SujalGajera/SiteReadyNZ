@@ -9,15 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // Inter ships inside the app bundle (see main.tsx) so it also loads offline.
-        sans: [
-          '"Inter Variable"',
-          '-apple-system',
-          'BlinkMacSystemFont',
-          '"Segoe UI"',
-          'Roboto',
-          'sans-serif',
-        ],
+        // Both fonts ship inside the app bundle (see main.tsx) so they also load offline.
+        sans: ['"Instrument Sans Variable"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        display: ['"Bricolage Grotesque Variable"', '"Instrument Sans Variable"', 'system-ui', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -32,10 +26,14 @@ const config: Config = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
-        // Status colours used by badges, stats and the Pass / Fail / Flag buttons.
+        fern: 'hsl(var(--fern))',
+        kowhai: { DEFAULT: 'hsl(var(--kowhai))', soft: 'hsl(var(--kowhai-soft))' },
+        canvas: 'hsl(var(--canvas))',
+        // Status colours used by badges, bars and the Pass / Fail / Flag buttons.
         // `soft` is the pale background, `DEFAULT` is the strong text/border colour.
         ok: { DEFAULT: 'hsl(var(--ok))', soft: 'hsl(var(--ok-soft))' },
         warn: { DEFAULT: 'hsl(var(--warn))', soft: 'hsl(var(--warn-soft))' },
+        overdue: { DEFAULT: 'hsl(var(--overdue))', soft: 'hsl(var(--overdue-soft))' },
         danger: { DEFAULT: 'hsl(var(--danger))', soft: 'hsl(var(--danger-soft))' },
       },
       borderRadius: {

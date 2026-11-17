@@ -1,6 +1,6 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, isNetworkError, SESSION_EXPIRED_EVENT } from '@/services/api'
-import type { User, UserRole } from '@/types'
+import type { User } from '@/types'
 
 // Context/Provider Pattern: any component can read the signed-in user without props being
 // passed down through every level.
@@ -12,7 +12,6 @@ export interface RegisterDetails {
   name: string
   email: string
   password: string
-  role: UserRole
 }
 
 export interface AuthContextValue {

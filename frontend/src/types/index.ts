@@ -33,6 +33,7 @@ export interface Equipment {
   /** Calculated from expiryDate. Never sent by the client. */
   status: EquipmentStatus
   lastInspectedAt?: string
+  createdAt?: string
   /** The manager who added it. The API fills in their name. */
   assignedManagerId?: { id: string; name: string } | null
 }

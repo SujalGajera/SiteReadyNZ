@@ -7,14 +7,14 @@ import { IUser } from '../models/User';
 import { signToken } from '../utils/jwtHelper';
 import { rejectIfInvalid } from '../utils/validation';
 import { setAuthCookie, clearAuthCookie } from '../utils/authCookie';
-import { registerUser, authenticateUser, getUserById, RegisterInput } from '../services/authService';
+import { registerUser, authenticateUser, getUserById, getOrganisationId, RegisterInput } from '../services/authService';
 
 /**
  * Signs a token for the user, stores it in the httpOnly cookie, and returns it in the
  * body too. The body copy exists for Postman and API testing; the React app ignores it.
  */
 function startSession(res: Response, user: IUser): string {
-  const token = signToken(user.id as string, user.role);
+  const token = signToken(user.id as string, user.role, getOrganisationId(user));
   setAuthCookie(res, token);
   return token;
 }

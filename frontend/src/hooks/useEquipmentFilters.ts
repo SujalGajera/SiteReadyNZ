@@ -2,77 +2,69 @@ import { useMemo, useState } from 'react'
 import { equipmentTypeLabels, statusDisplay } from '@/utils/statusCalculator'
 import type { Equipment, EquipmentStatus } from '@/types'
 
-export type SortKey = 'name' | 'location' | 'expiryDate' | 'status'
-export type SortDirection = 'asc' | 'desc'
-export type StatusFilter = EquipmentStatus | 'all' | 'attention'
+export type SortOption = 'expiry' | 'urgency' | 'name' | 'location'
+export type StatusFilter = EquipmentStatus | 'all'
 
-/** What the stats row shows */
+export const sortOptionLabels: Record<SortOption, string> = {
+  expiry: 'Soonest expiry',
+  urgency: 'Most urgent',
+  name: 'Name, A to Z',
+  location: 'Location, A to Z',
+}
+
+/** How many items are in each state, for the readiness summary */
 export interface EquipmentCounts {
   total: number
   ok: number
-  dueSoon: number
-  /** Overdue plus expired: everything that needs action now */
-  needsAction: number
+  due_soon: number
+  overdue: number
+  expired: number
 }
 
 export function countEquipment(equipment: Equipment[]): EquipmentCounts {
-  return {
-    total: equipment.length,
-    ok: equipment.filter((item) => item.status === 'ok').length,
-    dueSoon: equipment.filter((item) => item.status === 'due_soon').length,
-    needsAction: equipment.filter((item) => item.status === 'overdue' || item.status === 'expired').length,
-  }
+  const counts: EquipmentCounts = { total: equipment.length, ok: 0, due_soon: 0, overdue: 0, expired: 0 }
+  for (const item of equipment) counts[item.status] += 1
+  return counts
 }
 
-function compare(a: Equipment, b: Equipment, key: SortKey): number {
-  switch (key) {
+/** Share of items that are fully ready, 0 to 100. An empty list is 0, not a divide-by-zero. */
+export function readinessPercent(counts: EquipmentCounts): number {
+  return counts.total === 0 ? 0 : Math.round((counts.ok / counts.total) * 100)
+}
+
+function compareByOption(a: Equipment, b: Equipment, option: SortOption): number {
+  switch (option) {
     case 'name':
       return a.name.localeCompare(b.name, 'en-NZ', { sensitivity: 'base' })
     case 'location':
       return a.location.localeCompare(b.location, 'en-NZ', { sensitivity: 'base' })
-    case 'expiryDate':
+    case 'urgency':
+      // Worst status first; items in the same state are ordered by how soon they expire
+      return statusDisplay[a.status].severity - statusDisplay[b.status].severity || a.expiryDate.localeCompare(b.expiryDate)
+    case 'expiry':
       return a.expiryDate.localeCompare(b.expiryDate)
-    case 'status':
-      return statusDisplay[a.status].severity - statusDisplay[b.status].severity
   }
 }
 
-/** Search text, status filter and column sorting for the equipment table */
+/** Search text, status filter and sort order for the equipment list */
 export function useEquipmentFilters(equipment: Equipment[]) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  // Default: soonest expiry first, the same order the API uses
-  const [sortKey, setSortKey] = useState<SortKey>('expiryDate')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [sortOption, setSortOption] = useState<SortOption>('urgency')
 
   const visibleEquipment = useMemo(() => {
     const query = search.trim().toLowerCase()
 
     const filtered = equipment.filter((item) => {
-      if (statusFilter === 'attention') {
-        if (item.status !== 'overdue' && item.status !== 'expired') return false
-      } else if (statusFilter !== 'all' && item.status !== statusFilter) {
-        return false
-      }
+      if (statusFilter !== 'all' && item.status !== statusFilter) return false
       if (!query) return true
       // Search across everything a person might remember about an item
       const searchable = [item.name, item.location, item.serialNumber ?? '', equipmentTypeLabels[item.type]]
       return searchable.some((text) => text.toLowerCase().includes(query))
     })
 
-    const direction = sortDirection === 'asc' ? 1 : -1
-    return [...filtered].sort((a, b) => compare(a, b, sortKey) * direction)
-  }, [equipment, search, statusFilter, sortKey, sortDirection])
-
-  /** Clicking the active column flips direction; clicking a new column sorts it ascending */
-  function toggleSort(key: SortKey) {
-    if (key === sortKey) {
-      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDirection('asc')
-    }
-  }
+    return [...filtered].sort((a, b) => compareByOption(a, b, sortOption))
+  }, [equipment, search, statusFilter, sortOption])
 
   function clearFilters() {
     setSearch('')
@@ -87,9 +79,8 @@ export function useEquipmentFilters(equipment: Equipment[]) {
     setSearch,
     statusFilter,
     setStatusFilter,
-    sortKey,
-    sortDirection,
-    toggleSort,
+    sortOption,
+    setSortOption,
     clearFilters,
     hasActiveFilters,
   }
