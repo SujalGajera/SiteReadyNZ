@@ -1,30 +1,40 @@
-/**
- * Date formatting utilities.
- * Keeping date logic here (not scattered through components) means changing
- * locale or format only requires editing this one file.
- */
+// Date helpers.
+//
+// Equipment dates are calendar days ("expires 1 December"), not moments in time. The server
+// stores them as midnight UTC, so we always read and format them in UTC. That way the day a
+// manager picked never shifts by one, whichever time zone the phone is in.
 
-/** Returns a human-readable date in "31 October 2026" format */
-export function formatDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('en-NZ', {
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+/** "2026-12-01T00:00:00.000Z" -> "2026-12-01", the format an <input type="date"> uses */
+export function toDateInputValue(isoDate: string | undefined | null): string {
+  return isoDate ? isoDate.slice(0, 10) : ''
+}
+
+/** "1 Dec 2026" in New Zealand style. Returns an en dash for missing dates. */
+export function formatDate(isoDate: string | undefined | null): string {
+  if (!isoDate) return '\u2013'
+  return new Date(isoDate).toLocaleDateString('en-NZ', {
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
+    timeZone: 'UTC',
   })
 }
 
-/** Returns the number of whole days until the given date (negative = past) */
-export function daysUntil(date: Date | string): number {
-  const d = typeof date === 'string' ? new Date(date) : date
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const msPerDay = 1000 * 60 * 60 * 24
-  return Math.floor((target.getTime() - today.getTime()) / msPerDay)
+/** Whole calendar days from today (device date) until the given day. Negative means it has passed. */
+export function daysUntil(isoDate: string, now: Date = new Date()): number {
+  const target = new Date(isoDate)
+  const targetDay = Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate())
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.round((targetDay - today) / MS_PER_DAY)
 }
 
-/** Returns true when the given date is in the past */
-export function isExpired(date: Date | string): boolean {
-  return daysUntil(date) < 0
+/** Friendly countdown: "in 12 days", "today", "3 days ago" */
+export function describeDaysUntil(isoDate: string, now: Date = new Date()): string {
+  const days = daysUntil(isoDate, now)
+  if (days === 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  if (days === -1) return 'yesterday'
+  return days > 0 ? `in ${days} days` : `${Math.abs(days)} days ago`
 }

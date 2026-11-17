@@ -1,11 +1,11 @@
-// src/routes/equipmentRoutes.ts — Route definitions for equipment CRUD endpoints
-// All routes require a valid JWT. POST, PUT, and DELETE also require the manager role
-// because only managers are allowed to change equipment records.
+// src/routes/equipmentRoutes.ts — URLs for equipment.
+// Everyone signed in can read equipment. Only managers can create, change or delete it.
 
 import { Router } from 'express';
-import { body } from 'express-validator';
+import { body, param } from 'express-validator';
 import { requireAuthentication } from '../middleware/authMiddleware';
 import { requireRole } from '../middleware/roleGuard';
+import { EQUIPMENT_TYPES } from '../models/Equipment';
 import {
   getAllEquipment,
   getEquipmentById,
@@ -16,55 +16,35 @@ import {
 
 const equipmentRouter = Router();
 
-// Validation rules shared between create and update
-const equipmentValidationRules = [
-  body('name').trim().notEmpty().withMessage('Equipment name is required'),
-  body('type')
-    .isIn(['fire_extinguisher', 'first_aid', 'aed', 'safety_sign', 'other'])
-    .withMessage('Invalid equipment type'),
-  body('location').trim().notEmpty().withMessage('Location is required'),
-  body('expiryDate')
-    .isISO8601()
-    .withMessage('Expiry date must be a valid date (ISO 8601 format)'),
-];
+// Rejects ids that are not valid MongoDB ids, so a typo gives a 400 instead of a database error
+const idRule = param('id').isMongoId().withMessage('Invalid equipment id');
 
-// All staff and managers can view equipment — both roles need to know what is on-site
+/**
+ * Field rules. On create, name/type/location/expiryDate are required. On update every
+ * field is optional, so a partial change (just the expiry date) is valid.
+ */
+function equipmentFieldRules(isUpdate: boolean) {
+  const required = <T extends ReturnType<typeof body>>(chain: T): T => (isUpdate ? (chain.optional() as T) : chain);
+
+  return [
+    required(body('name')).trim().notEmpty().withMessage('Name is required').isLength({ max: 120 }).withMessage('Name is too long'),
+    required(body('type')).isIn(EQUIPMENT_TYPES).withMessage('Choose a valid equipment type'),
+    required(body('location')).trim().notEmpty().withMessage('Location is required').isLength({ max: 160 }).withMessage('Location is too long'),
+    required(body('expiryDate')).isISO8601().withMessage('Expiry date must be a valid date'),
+    // Optional on both create and update. Blank is allowed and means "not set".
+    body('serialNumber').optional({ values: 'falsy' }).trim().isLength({ max: 80 }).withMessage('Serial number is too long'),
+    body('purchaseDate').optional({ values: 'falsy' }).isISO8601().withMessage('Purchase date must be a valid date'),
+    body('lastInspectedAt').optional({ values: 'falsy' }).isISO8601().withMessage('Last inspected date must be a valid date'),
+  ];
+}
+
+// Read: any signed-in user
 equipmentRouter.get('/', requireAuthentication, getAllEquipment);
-equipmentRouter.get('/:id', requireAuthentication, getEquipmentById);
+equipmentRouter.get('/:id', requireAuthentication, idRule, getEquipmentById);
 
-// Only managers can create, update, or delete equipment records
-equipmentRouter.post(
-  '/',
-  requireAuthentication,
-  requireRole('manager'),
-  equipmentValidationRules,
-  createEquipment
-);
-
-equipmentRouter.put(
-  '/:id',
-  requireAuthentication,
-  requireRole('manager'),
-  [
-    // On update, the same fields are valid but none are strictly required
-    // (a partial update may only change one field)
-    body('type')
-      .optional()
-      .isIn(['fire_extinguisher', 'first_aid', 'aed', 'safety_sign', 'other'])
-      .withMessage('Invalid equipment type'),
-    body('expiryDate')
-      .optional()
-      .isISO8601()
-      .withMessage('Expiry date must be a valid date'),
-  ],
-  updateEquipment
-);
-
-equipmentRouter.delete(
-  '/:id',
-  requireAuthentication,
-  requireRole('manager'),
-  deleteEquipment
-);
+// Write: managers only
+equipmentRouter.post('/', requireAuthentication, requireRole('manager'), equipmentFieldRules(false), createEquipment);
+equipmentRouter.put('/:id', requireAuthentication, requireRole('manager'), idRule, equipmentFieldRules(true), updateEquipment);
+equipmentRouter.delete('/:id', requireAuthentication, requireRole('manager'), idRule, deleteEquipment);
 
 export default equipmentRouter;

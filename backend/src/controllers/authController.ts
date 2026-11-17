@@ -2,10 +2,10 @@
 // Controllers stay thin: read the request, call authService, set the cookie, send the response.
 
 import { Request, Response, NextFunction } from 'express';
-import { validationResult } from 'express-validator';
 
 import { IUser } from '../models/User';
 import { signToken } from '../utils/jwtHelper';
+import { rejectIfInvalid } from '../utils/validation';
 import { setAuthCookie, clearAuthCookie } from '../utils/authCookie';
 import { registerUser, authenticateUser, getUserById, RegisterInput } from '../services/authService';
 
@@ -17,20 +17,6 @@ function startSession(res: Response, user: IUser): string {
   const token = signToken(user.id as string, user.role);
   setAuthCookie(res, token);
   return token;
-}
-
-/** Sends a 400 and returns true when the route's validation rules found a problem */
-function rejectIfInvalid(req: Request, res: Response): boolean {
-  const validationErrors = validationResult(req);
-  if (validationErrors.isEmpty()) return false;
-
-  // One readable sentence for the UI, plus the per-field detail for forms
-  const fieldErrors = validationErrors.array().map((issue) => ({
-    field: issue.type === 'field' ? issue.path : 'request',
-    message: issue.msg as string,
-  }));
-  res.status(400).json({ error: fieldErrors[0].message, errors: fieldErrors });
-  return true;
 }
 
 /** POST /auth/register — create an account and sign the user in (201) */

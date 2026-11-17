@@ -21,6 +21,23 @@ export function globalErrorHandler(
   res: Response,
   _next: NextFunction
 ): void {
+  // Database problems caused by the request (not by a server fault) become clean 4xx answers
+  const mongoError = error as AppError & { code?: number; keyValue?: Record<string, unknown> };
+  if (mongoError.code === 11000) {
+    // A unique field (like serial number) already exists
+    const field = Object.keys(mongoError.keyValue ?? {})[0] ?? 'value';
+    res.status(409).json({ error: `That ${field} is already in use.` });
+    return;
+  }
+  if (error.name === 'CastError') {
+    res.status(400).json({ error: 'One of the values sent has the wrong format.' });
+    return;
+  }
+  if (error.name === 'ValidationError') {
+    res.status(400).json({ error: error.message });
+    return;
+  }
+
   const statusCode = error.statusCode ?? error.status ?? 500;
 
   if (statusCode >= 500) {

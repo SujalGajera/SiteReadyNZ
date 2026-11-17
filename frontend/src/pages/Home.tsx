@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 
 /** Time-of-day greeting, using the device clock */
@@ -14,16 +15,15 @@ export default function HomePage() {
   const { user } = useAuth()
   const firstName = user?.name.split(' ')[0]
 
+  // Managers work from the equipment list, so that is their home
+  if (user?.role === 'manager') return <Navigate to="/equipment" replace />
+
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-semibold">
         {getGreeting()}, {firstName}
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {user?.role === 'manager'
-          ? 'Your equipment list and inspection schedule will appear here.'
-          : 'Your assigned inspections will appear here.'}
-      </p>
+      <p className="mt-2 text-sm text-muted-foreground">Your assigned inspections will appear here.</p>
     </div>
   )
 }

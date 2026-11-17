@@ -1,9 +1,9 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { AuthLayout } from '@/components/auth/AuthLayout'
-import { FormField } from '@/components/auth/FormField'
+import { FormField } from '@/components/forms/FormField'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 import { AuthDivider } from '@/components/auth/AuthDivider'
-import { FormError } from '@/components/auth/FormError'
+import { FormError } from '@/components/forms/FormError'
 import { Button } from '@/components/ui/button'
 import { useLoginForm } from '@/hooks/useAuthForms'
 

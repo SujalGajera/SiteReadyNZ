@@ -1,0 +1,106 @@
+{
+  "info": {
+    "name": "SiteReady NZ API",
+    "description": "Run in order: Register (or Login) first. Its test script saves the JWT into the {{token}} collection variable, and every later request sends it as a Bearer token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "token", "value": "" },
+    { "key": "equipmentId", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /auth/register (expect 201)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "const body = pm.response.json();",
+            "pm.test('returns a token and no passwordHash', () => { pm.expect(body.token).to.be.a('string'); pm.expect(JSON.stringify(body)).to.not.include('passwordHash'); });",
+            "pm.collectionVariables.set('token', body.token);"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Manager\",\n  \"email\": \"postman.manager@example.com\",\n  \"password\": \"a-good-password-1\",\n  \"role\": \"manager\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "POST /auth/login (expect 200 with JWT)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('returns a JWT', () => pm.expect(body.token.split('.')).to.have.length(3));",
+            "pm.collectionVariables.set('token', body.token);"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"postman.manager@example.com\",\n  \"password\": \"a-good-password-1\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "GET /auth/me (expect 200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] } }
+        }
+      ]
+    },
+    {
+      "name": "Equipment",
+      "item": [
+        {
+          "name": "POST /api/equipment (expect 201)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "const body = pm.response.json();",
+            "pm.test('status was calculated by the server', () => pm.expect(body.status).to.be.oneOf(['ok','due_soon','overdue','expired']));",
+            "pm.collectionVariables.set('equipmentId', body._id);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Fire extinguisher, reception\",\n  \"type\": \"fire_extinguisher\",\n  \"location\": \"Reception\",\n  \"serialNumber\": \"FE-1001\",\n  \"purchaseDate\": \"2025-01-15\",\n  \"expiryDate\": \"2027-01-15\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/equipment", "host": ["{{baseUrl}}"], "path": ["api", "equipment"] }
+          }
+        },
+        {
+          "name": "GET /api/equipment (expect 200 with array)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('body is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/equipment", "host": ["{{baseUrl}}"], "path": ["api", "equipment"] } }
+        },
+        {
+          "name": "GET /api/equipment/:id (expect 200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/equipment/{{equipmentId}}", "host": ["{{baseUrl}}"], "path": ["api", "equipment", "{{equipmentId}}"] } }
+        },
+        {
+          "name": "PUT /api/equipment/:id (expect 200)",
+          "event": [{ "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["const d = new Date(); d.setDate(d.getDate() + 10);", "pm.collectionVariables.set('soonDate', d.toISOString().slice(0, 10));"] } }, { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('status recalculated', () => pm.expect(pm.response.json().status).to.equal('due_soon'));"] } }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"expiryDate\": \"{{soonDate}}\"\n}" },
+            "description": "A pre-request script sets soonDate to 10 days from today, so the status changes to due_soon.",
+            "url": { "raw": "{{baseUrl}}/api/equipment/{{equipmentId}}", "host": ["{{baseUrl}}"], "path": ["api", "equipment", "{{equipmentId}}"] }
+          }
+        },
+        {
+          "name": "DELETE /api/equipment/:id (expect 204)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"] } }],
+          "request": { "method": "DELETE", "url": { "raw": "{{baseUrl}}/api/equipment/{{equipmentId}}", "host": ["{{baseUrl}}"], "path": ["api", "equipment", "{{equipmentId}}"] } }
+        }
+      ]
+    }
+  ]
+}

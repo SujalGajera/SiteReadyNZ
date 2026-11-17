@@ -104,13 +104,13 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 - **Done when:** Can register, login with email/password and with Google. JWT returned and stored. Protected routes redirect unauthenticated users.
 
 ### Phase 3 — Feature 1: Equipment Management (Manager)
-- [ ] MongoDB Equipment model
-- [ ] All 5 REST endpoints: POST, GET all, GET one, PUT, DELETE /api/equipment
-- [ ] Equipment Dashboard page (filterable table, search, status badges)
-- [ ] Add/Edit Equipment slide-over form with validation
-- [ ] Status calculator (OK / Due Soon / Overdue / Expired logic)
-- [ ] Stats cards (total, due, overdue counts)
-- [ ] Postman tested — all endpoints return correct status codes
+- [x] MongoDB Equipment model
+- [x] All 5 REST endpoints: POST, GET all, GET one, PUT, DELETE /api/equipment
+- [x] Equipment Dashboard page (filterable table, search, status badges)
+- [x] Add/Edit Equipment slide-over form with validation
+- [x] Status calculator (OK / Due Soon / Overdue / Expired logic)
+- [x] Stats cards (total, due, overdue counts)
+- [ ] Postman tested — all endpoints return correct status codes (collection ready in docs/postman; screenshots are yours to capture)
 - **Done when:** Manager can fully CRUD equipment. Status auto-calculates from expiry date. Postman screenshots captured.
 
 ### Phase 4 — Feature 2: Offline Inspection Checklist (Staff)

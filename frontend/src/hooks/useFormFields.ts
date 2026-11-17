@@ -8,7 +8,7 @@ type Validator<Values> = (values: Values) => Partial<Record<keyof Values, string
  * - from then on the message updates live, so it disappears the moment the problem is fixed
  * - on submit every field is marked as touched, so all problems show at once
  */
-export function useFormFields<Values extends Record<string, string>>(
+export function useFormFields<Values extends { [Field in keyof Values]: string }>(
   initialValues: Values,
   validate: Validator<Values>
 ) {
@@ -38,5 +38,11 @@ export function useFormFields<Values extends Record<string, string>>(
     return Object.values(validate(values)).every((message) => !message)
   }, [values, validate])
 
-  return { values, errors, setValue, markTouched, validateAll }
+  /** Puts the form back to a fresh state, for example when a slide-over is reopened */
+  const reset = useCallback((nextValues: Values) => {
+    setValues(nextValues)
+    setTouched({})
+  }, [])
+
+  return { values, errors, setValue, markTouched, validateAll, reset }
 }

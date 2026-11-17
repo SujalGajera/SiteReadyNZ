@@ -550,7 +550,57 @@ Keeping push routes lean — there are only two endpoints and both are security-
 
 ## Phase 3 — Feature 1: Equipment Management
 
-*(Entries will be added here as Phase 3 files are created)*
+**Audit findings fixed in the existing backend:**
+- Status was only worked out when a record was saved, so an item saved as "OK" stayed "OK" after its expiry date passed. Every API response now recalculates it from the expiry date.
+- `POST` passed the raw request body to the database (a caller could set `status` or `_id`). Now only whitelisted fields are copied.
+- A malformed id gave a 500, and a duplicate serial number was not handled. Now 400 and 409. Serial numbers are unique when present.
+- Day-boundary maths used the server's local midnight on a UTC date, which can be off by a day. Dates are now compared as calendar days.
+
+**Status rule (needs your confirmation, see summary):** expired = date has passed; overdue = expires today; due soon = within 30 days; OK = more than 30 days. The design document lists the four statuses but gives no day counts.
+
+### [backend/src/utils/statusCalculator.ts]
+**Status:** Created
+**Phase:** Phase 3
+**Pattern:** Strategy
+**What it does:** `calculateEquipmentStatus(expiryDate, strategy?)`. The default strategy (`standardStatusStrategy`) turns "days until expiry" into a status. Another rule can be passed in without touching the model or controller, and tests can pass a fake one.
+**Why structured this way:** AGENT_RULES asks for the Strategy pattern here. The model hook, the JSON output and (in Phase 5) the notification job all use the same function, so there is one source of truth.
+
+### [backend/src/models/Equipment.ts]
+**Status:** Rewritten
+**Phase:** Phase 3
+**What it does:** Same fields as before, with length limits, a unique sparse `serialNumber`, the shared type list `EQUIPMENT_TYPES`, and a `toJSON` that recalculates status on every response.
+
+### [backend/src/services/equipmentService.ts], [controllers/equipmentController.ts], [routes/equipmentRoutes.ts], [utils/validation.ts]
+**Status:** Created / Rewritten
+**Phase:** Phase 3
+**Pattern:** Service layer (the Repository pattern goes behind this in Phase 7)
+**What it does:** The five endpoints. Controllers only read the request and send the response; the service holds the rules (whitelisting, "find then save so the hook runs", creator recorded as owner). Routes validate ids and fields. Reading needs a login; creating, changing and deleting need the manager role.
+**Done check:** 30 API checks pass (201, 200, 204, 400, 401, 403, 404, 409, status recalculation, mass-assignment ignored, sorted list). Postman collection saved in `docs/postman/`.
+
+### [frontend/src/utils/statusCalculator.ts], [utils/dateHelpers.ts], [services/equipmentApi.ts]
+**Status:** Created / Rewritten
+**Phase:** Phase 3
+**Pattern:** Strategy (same rule as the server)
+**What it does:** The device recalculates every item's status from its expiry date, so data cached while offline is never shown with an out-of-date status. Dates are read and shown in UTC so a picked day never shifts by one.
+
+### [frontend/src/hooks/useEquipment.ts], [useEquipmentFilters.ts], [useEquipmentDashboard.ts], [useEquipmentForm.ts], [useEquipmentDetail.ts]
+**Status:** Created
+**Phase:** Phase 3
+**What it does:** All data and behaviour for the equipment screens. `useEquipment` talks to the API, `useEquipmentFilters` does search, status filter and sorting, `useEquipmentDashboard` combines them with the state of the slide-over and delete dialog, `useEquipmentForm` handles validation and saving. Pages only lay things out.
+
+### [frontend/src/components/equipment/*], [pages/manager/Dashboard.tsx], [pages/manager/EquipmentDetail.tsx]
+**Status:** Created
+**Phase:** Phase 3
+**What it does:**
+- `StatsCards`: one strip with four counts. Each cell is also a filter button.
+- `EquipmentToolbar`: search box and status dropdown.
+- `EquipmentTable` (tablet and desktop) with sortable columns and `aria-sort`; `EquipmentCard` (phones).
+- `EquipmentFormSheet` + `EquipmentForm`: add and edit slide-over. Visible labels, errors on blur, loading button, server errors shown at the top.
+- `DeleteEquipmentDialog`: confirmation with a red button.
+- `EquipmentEmptyState`: two cases (nothing yet, nothing matches).
+- `StatusBadge`: uppercase pill; "Expired" is the only solid-filled one.
+**Key decisions:** Toasts moved to bottom-centre because bottom-right covered the Edit and Delete buttons of the last row. Managers land on `/equipment`; staff opening it are sent home by `ProtectedRoute roles={['manager']}`.
+**Done check:** 33 checks in real Chrome (empty state, seeded data, stats, search, both filters, sorting, validation, add, edit with status change, cancel and confirm delete, detail page, staff redirect and hidden nav link, phone layout) plus zero console errors.
 
 ---
 

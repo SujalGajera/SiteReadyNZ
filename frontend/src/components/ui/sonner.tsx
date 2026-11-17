@@ -1,11 +1,11 @@
 import { Toaster as SonnerToaster } from "sonner"
 
 // Sonner (Emil Kowalski's toast library) styled with our palette.
-// Positioned bottom-right on desktop and top-centre on phones by Sonner itself.
+// Bottom-centre so a toast never covers the right-aligned Edit / Delete buttons in the table.
 export function Toaster() {
   return (
     <SonnerToaster
-      position="bottom-right"
+      position="bottom-center"
       toastOptions={{
         classNames: {
           toast:

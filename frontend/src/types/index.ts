@@ -19,19 +19,32 @@ export interface ApiErrorBody {
 }
 
 /** A single piece of emergency equipment managed by the system */
+export type EquipmentType = 'fire_extinguisher' | 'first_aid' | 'aed' | 'safety_sign' | 'other'
+export type EquipmentStatus = 'ok' | 'due_soon' | 'overdue' | 'expired'
+
 export interface Equipment {
   _id: string
   name: string
-  /** Category of equipment, e.g. fire_extinguisher, aed */
-  type: 'fire_extinguisher' | 'first_aid' | 'aed' | 'safety_sign' | 'other'
+  type: EquipmentType
+  location: string
+  serialNumber?: string
+  purchaseDate?: string // ISO date string
+  expiryDate: string // ISO date string, used to calculate status
+  /** Calculated from expiryDate. Never sent by the client. */
+  status: EquipmentStatus
+  lastInspectedAt?: string
+  /** The manager who added it. The API fills in their name. */
+  assignedManagerId?: { id: string; name: string } | null
+}
+
+/** What the add/edit form sends. Optional fields are empty strings when left blank. */
+export interface EquipmentFormValues {
+  name: string
+  type: EquipmentType
   location: string
   serialNumber: string
-  purchaseDate: string // ISO date string
-  expiryDate: string // ISO date string, used to calculate status
-  /** Auto-calculated field based on expiryDate */
-  status: 'ok' | 'due_soon' | 'overdue' | 'expired'
-  lastInspectedAt: string | null
-  assignedManagerId?: string
+  purchaseDate: string
+  expiryDate: string
 }
 
 /** One item within a checklist, recording the inspector's finding */
