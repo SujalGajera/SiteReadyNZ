@@ -73,3 +73,8 @@ export function validateExpiryAfterPurchase(purchaseDate: string, expiryDate: st
   }
   return undefined
 }
+
+/** A dropdown where one option must be picked, for example "Choose a staff member" */
+export function validateChoice(value: string, whatToChoose: string): string | undefined {
+  return value ? undefined : `Choose ${whatToChoose}`
+}

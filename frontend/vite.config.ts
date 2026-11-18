@@ -17,8 +17,18 @@ export default defineConfig({
       // Automatically updates the service worker when new content is available
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png', 'brand/*.png', 'favicon.png'],
-      // Lets us see the service worker while running `npm run dev`, not only after a build
-      devOptions: { enabled: true },
+      // We write our own service worker (src/sw/sw.ts) because we need Background Sync for the outbox
+      strategies: 'injectManifest',
+      srcDir: 'src/sw',
+      filename: 'sw.ts',
+      // Shows the service worker while running `npm run dev`, not only after a build
+      devOptions: { enabled: true, type: 'module' },
+      injectManifest: {
+        // Include fonts and images in the offline copy of the app
+        globPatterns: ['**/*.{js,css,html,png,woff2,webmanifest}'],
+        // Skip alphabets the app never shows. Latin Extended is kept: it holds the macrons (ā, ē, ī, ō, ū) in Māori names.
+        globIgnores: ['**/*cyrillic*', '**/*greek*', '**/*vietnamese*'],
+      },
       manifest: {
         name: 'SiteReady NZ',
         short_name: 'SiteReady',
@@ -31,25 +41,6 @@ export default defineConfig({
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-      },
-      workbox: {
-        // Single-page app: any unknown URL (e.g. /dashboard on refresh, offline) serves index.html
-        navigateFallback: '/index.html',
-        // Never serve the app shell for backend routes such as Google sign-in
-        navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
-        // Cache API responses Network-First so offline users get the last-known data
-        runtimeCaching: [
-          {
-            urlPattern: /\/api\//,
-            method: 'GET',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
-            },
-          },
         ],
       },
     }),

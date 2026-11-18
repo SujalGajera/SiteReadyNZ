@@ -114,15 +114,15 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 - **Done when:** Manager can fully CRUD equipment. Status auto-calculates from expiry date. Postman screenshots captured.
 
 ### Phase 4 — Feature 2: Offline Inspection Checklist (Staff)
-- [ ] MongoDB Inspection model (with items array, syncStatus)
-- [ ] GET /api/inspections/assigned/:userId
-- [ ] POST /api/inspections/submit
-- [ ] PATCH /api/inspections/:id/sync
-- [ ] Service worker caches checklist data on load
-- [ ] IndexedDB outbox queue (save offline submissions)
-- [ ] Background Sync when connectivity returns
-- [ ] Offline indicator banner
-- [ ] Pass/Fail/Flag toggle UI with large touch targets
+- [x] MongoDB Inspection model (with items array, syncStatus)
+- [x] GET /api/inspections/assigned/:userId
+- [x] POST /api/inspections/submit
+- [x] PATCH /api/inspections/:id/sync
+- [x] Service worker caches checklist data on load
+- [x] IndexedDB outbox queue (save offline submissions)
+- [x] Background Sync when connectivity returns
+- [x] Offline indicator banner
+- [x] Pass/Fail/Flag toggle UI with large touch targets
 - **Done when:** Staff can complete checklist offline. Submission saves to IndexedDB. Syncs automatically on reconnect. Browser DevTools shows cache + IndexedDB entries.
 
 ### Phase 5 — Push Notifications

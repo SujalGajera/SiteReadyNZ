@@ -7,6 +7,7 @@ import '@fontsource-variable/instrument-sans'
 import '@fontsource-variable/bricolage-grotesque'
 import { AuthProvider } from '@/context/AuthContext'
 import { OfflineProvider } from '@/context/OfflineContext'
+import { SyncProvider } from '@/context/SyncContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
@@ -22,10 +23,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <AuthProvider>
             <OfflineProvider>
-              <TooltipProvider delayDuration={300}>
-                <App />
-                <Toaster />
-              </TooltipProvider>
+              <SyncProvider>
+                <TooltipProvider delayDuration={300}>
+                  <App />
+                  <Toaster />
+                </TooltipProvider>
+              </SyncProvider>
             </OfflineProvider>
           </AuthProvider>
         </BrowserRouter>

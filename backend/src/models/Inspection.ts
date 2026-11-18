@@ -1,92 +1,83 @@
-// src/models/Inspection.ts — Mongoose model for equipment inspection records
-// An inspection is a checklist assigned to a staff member for a specific piece
-// of equipment. It can be completed offline and synced later.
+// src/models/Inspection.ts — Mongoose model for inspection records.
+// An inspection is a checklist assigned to a staff member for one piece of equipment.
+// It can be completed offline on a phone and uploaded later.
 
 import mongoose, { Document, Schema, Types } from 'mongoose';
+import { daysUntilExpiry as daysUntilDate } from '../utils/statusCalculator';
 
-// Each item on the inspection checklist records what was checked and the outcome
+export type InspectionResult = 'pass' | 'fail' | 'flag' | 'not_checked';
+export type InspectionStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
+
+// One question on the checklist and the inspector's answer to it
 export interface IInspectionItem {
-  itemId: string;        // Client-generated ID so offline items can be referenced
-  description: string;   // Human-readable description of what was checked
-  category: string;      // Logical grouping (e.g. "Physical Condition", "Labels")
-  result: 'pass' | 'fail' | 'flag' | 'not_checked';
-  notes?: string;        // Inspector's free-text notes for this item
-  severity: 'low' | 'medium' | 'critical'; // How serious a failure at this item would be
+  itemId: string;      // Stable id from the template, also used by the phone to match answers
+  description: string;
+  category: string;    // Heading the question is grouped under
+  result: InspectionResult;
+  notes?: string;      // Required when the answer is fail or flag
+  severity: 'low' | 'medium' | 'critical'; // How serious a failed answer is
 }
 
 export interface IInspection extends Document {
-  equipmentId: Types.ObjectId;    // Which piece of equipment is being inspected
-  assignedStaffId: Types.ObjectId; // Which staff member is responsible
-  scheduledDate: Date;
-  completedAt?: Date;             // Null until the inspection is submitted
-  status: 'pending' | 'in_progress' | 'completed' | 'overdue';
-  syncStatus: 'synced' | 'pending_sync' | 'failed'; // Tracks whether offline data has been uploaded
+  organisationId: Types.ObjectId;  // The workspace this inspection belongs to
+  equipmentId: Types.ObjectId;
+  assignedStaffId: Types.ObjectId;
+  assignedById: Types.ObjectId;    // The manager who assigned it
+  scheduledDate: Date;             // The day it is due (a calendar day, stored as midnight UTC)
+  completedAt?: Date | null;       // When the checks were finished (on the phone, if done offline)
+  status: InspectionStatus;
+  syncStatus: 'synced' | 'pending_sync' | 'failed';
+  /** Random id made by the phone for each completed checklist. Lets the server ignore a repeated upload. */
+  submissionId?: string;
   items: IInspectionItem[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-// Sub-schema for individual checklist items — embedded in the inspection document
-// rather than a separate collection because they have no independent lifecycle
 const inspectionItemSchema = new Schema<IInspectionItem>(
   {
     itemId: { type: String, required: true },
     description: { type: String, required: true },
     category: { type: String, required: true },
-    result: {
-      type: String,
-      enum: ['pass', 'fail', 'flag', 'not_checked'],
-      default: 'not_checked',
-    },
-    notes: { type: String },
-    severity: {
-      type: String,
-      enum: ['low', 'medium', 'critical'],
-      required: true,
-    },
+    result: { type: String, enum: ['pass', 'fail', 'flag', 'not_checked'], default: 'not_checked' },
+    notes: { type: String, maxlength: 500, default: '' },
+    severity: { type: String, enum: ['low', 'medium', 'critical'], required: true },
   },
-  { _id: false } // No separate _id for sub-documents — itemId serves that purpose
+  { _id: false } // itemId already identifies each question
 );
 
 const inspectionSchema = new Schema<IInspection>(
   {
-    equipmentId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Equipment',
-      required: [true, 'Equipment ID is required'],
-    },
-    assignedStaffId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: [true, 'Assigned staff ID is required'],
-    },
-    scheduledDate: {
-      type: Date,
-      required: [true, 'Scheduled date is required'],
-    },
-    completedAt: {
-      type: Date,
-      default: null, // Null until the inspection is submitted as complete
-    },
-    status: {
-      type: String,
-      enum: ['pending', 'in_progress', 'completed', 'overdue'],
-      default: 'pending',
-    },
-    syncStatus: {
-      type: String,
-      enum: ['synced', 'pending_sync', 'failed'],
-      default: 'synced', // New server-created inspections are already in sync
-    },
-    items: {
-      type: [inspectionItemSchema],
-      default: [], // Start with an empty checklist; items are added when the inspection is submitted
-    },
+    organisationId: { type: Schema.Types.ObjectId, required: true, index: true },
+    equipmentId: { type: Schema.Types.ObjectId, ref: 'Equipment', required: [true, 'Equipment is required'] },
+    assignedStaffId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'Staff member is required'], index: true },
+    assignedById: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    scheduledDate: { type: Date, required: [true, 'Due date is required'] },
+    completedAt: { type: Date, default: null },
+    status: { type: String, enum: ['pending', 'in_progress', 'completed', 'overdue'], default: 'pending' },
+    syncStatus: { type: String, enum: ['synced', 'pending_sync', 'failed'], default: 'synced' },
+    submissionId: { type: String, maxlength: 64 },
+    items: { type: [inspectionItemSchema], default: [] },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
+
+// Answers to "what is on my list" are always looked up by staff member and status
+inspectionSchema.index({ organisationId: 1, assignedStaffId: 1, status: 1 });
+
+// A task that is still open after its due day is shown as overdue. Like equipment status this is
+// worked out when the answer is sent, so it can never be stale.
+inspectionSchema.set('toJSON', {
+  transform(_doc, ret) {
+    const plainInspection = ret as unknown as Record<string, unknown>;
+    delete plainInspection.__v;
+    const isOpen = plainInspection.status === 'pending' || plainInspection.status === 'in_progress';
+    if (isOpen && daysUntilDate(new Date(plainInspection.scheduledDate as Date)) < 0) {
+      plainInspection.status = 'overdue';
+    }
+    return plainInspection;
+  },
+});
 
 const Inspection = mongoose.model<IInspection>('Inspection', inspectionSchema);
 

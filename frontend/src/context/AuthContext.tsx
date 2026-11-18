@@ -1,5 +1,6 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, isNetworkError, SESSION_EXPIRED_EVENT } from '@/services/api'
+import { clearCachedInspections } from '@/services/offlineDb'
 import type { User } from '@/types'
 
 // Context/Provider Pattern: any component can read the signed-in user without props being
@@ -111,8 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Intentionally ignored: local sign-out below is what matters to this device
     }
     updateUser(null)
-    // Remove cached API answers so the next person on a shared device cannot see them offline
+    // Remove cached API answers and the saved task list so the next person on a shared device cannot see them offline.
+    // Unsent checklists are NOT removed: that is someone's finished work, and it uploads when they sign in again.
     if ('caches' in window) await caches.delete('api-cache')
+    await clearCachedInspections()
   }, [updateUser])
 
   const value = useMemo<AuthContextValue>(

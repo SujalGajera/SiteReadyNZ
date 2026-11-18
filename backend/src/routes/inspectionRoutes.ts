@@ -1,10 +1,10 @@
-// src/routes/inspectionRoutes.ts — Route definitions for inspection endpoints
-// All routes require authentication. The /submit route is used for both online
-// submission and sync of offline-completed inspections.
+// src/routes/inspectionRoutes.ts — URLs for inspections.
+// Managers assign and oversee. Staff list their own tasks and submit finished checklists.
 
 import { Router } from 'express';
-import { body } from 'express-validator';
+import { body, param } from 'express-validator';
 import { requireAuthentication } from '../middleware/authMiddleware';
+import { requireRole } from '../middleware/roleGuard';
 import {
   getAllInspections,
   getAssignedInspections,
@@ -15,41 +15,47 @@ import {
 
 const inspectionRouter = Router();
 
-// All inspection routes require a logged-in user (manager or staff)
+// Every inspection route needs a signed-in user
 inspectionRouter.use(requireAuthentication);
 
-// Managers view all inspections for oversight; staff only need their own (see /assigned)
-inspectionRouter.get('/', getAllInspections);
+// Manager overview of everything in the workspace
+inspectionRouter.get('/', requireRole('manager'), getAllInspections);
 
-// Staff call this on login to load their personal task list
-inspectionRouter.get('/assigned/:userId', getAssignedInspections);
+// A person's task list. The service stops staff asking for anyone but themselves.
+inspectionRouter.get(
+  '/assigned/:userId',
+  param('userId').isMongoId().withMessage('Invalid user id'),
+  getAssignedInspections
+);
 
-// Managers create inspection assignments for staff members
+// A manager assigns equipment to a staff member
 inspectionRouter.post(
   '/',
+  requireRole('manager'),
   [
-    body('equipmentId').notEmpty().withMessage('Equipment ID is required'),
-    body('assignedStaffId').notEmpty().withMessage('Assigned staff ID is required'),
-    body('scheduledDate')
-      .isISO8601()
-      .withMessage('Scheduled date must be a valid date'),
+    body('equipmentId').isMongoId().withMessage('Choose a piece of equipment'),
+    body('assignedStaffId').isMongoId().withMessage('Choose a staff member'),
+    body('scheduledDate').isISO8601().withMessage('Choose a due date'),
   ],
   createInspection
 );
 
-// Staff submit their completed checklist (also used by the offline sync flow)
+// Finished checklist, from the phone. Also used when an offline submission is uploaded later.
 inspectionRouter.post(
   '/submit',
   [
-    body('inspectionId').notEmpty().withMessage('Inspection ID is required'),
-    body('items')
-      .isArray({ min: 1 })
-      .withMessage('Items must be a non-empty array'),
+    body('inspectionId').isMongoId().withMessage('Invalid inspection id'),
+    body('submissionId').isString().isLength({ min: 8, max: 64 }).withMessage('A submission id is required'),
+    body('completedAt').optional().isISO8601().withMessage('Completed time must be a valid date'),
+    body('items').isArray({ min: 1, max: 60 }).withMessage('Send the answered checklist items'),
+    body('items.*.itemId').isString().isLength({ min: 1, max: 40 }).withMessage('Each item needs an id'),
+    body('items.*.result').isIn(['pass', 'fail', 'flag']).withMessage('Each item must be Pass, Fail or Flag'),
+    body('items.*.notes').optional({ values: 'null' }).isString().isLength({ max: 500 }).withMessage('Notes are limited to 500 characters'),
   ],
   submitInspection
 );
 
-// Background Sync calls this to mark an inspection as synced after reconnecting
-inspectionRouter.patch('/:id/sync', syncInspection);
+// Marks a finished inspection as uploaded
+inspectionRouter.patch('/:id/sync', param('id').isMongoId().withMessage('Invalid inspection id'), syncInspection);
 
 export default inspectionRouter;

@@ -646,7 +646,39 @@ Based on common compliance practice (NZS 4503 for extinguishers, AS/NZS 1851 for
 
 ## Phase 4 — Feature 2: Offline Inspection Checklist
 
-*(Entries will be added here as Phase 4 files are created)*
+**Audit findings fixed in the existing code:** the inspection endpoints had no manager-only guard, no workspace check, and let any staff member ask for anyone's list. Submitting trusted the phone for wording and severity, uploading twice could corrupt data, and nothing recorded the check on the equipment, so "Check overdue" could never clear.
+
+### How offline works (plain English)
+1. **While online**, the task list is saved in two places: the browser's **Cache Storage** (the service worker keeps the last answer from the API) and **IndexedDB** (a per-user copy, `inspections`).
+2. **The app itself** is saved by the service worker (precache), so it opens with no signal at all.
+3. **As the staff member answers**, a draft is saved in IndexedDB (`drafts`), so a reload or a killed app loses nothing.
+4. **Pressing Submit** always saves the finished checklist in the **outbox** (`outbox` in IndexedDB) first. Then, if there is signal, it uploads straight away. If not, it waits.
+5. **When signal returns**, two things can upload it: the service worker (**Background Sync**, even with the app closed) and the page (the browser's "online" event). Both are safe together, because every checklist carries a random `submissionId` and the server ignores a repeat.
+6. **Feedback:** a banner while offline, a "waiting to upload" card with the list, and a toast when the upload finishes. If the server refuses a checklist, the person sees why and can dismiss it.
+
+### Backend
+- **[models/Inspection.ts]** Rewritten. Adds `organisationId`, `assignedById`, `submissionId`. `toJSON` reports an open task past its due day as `overdue` (worked out when sent, like equipment status).
+- **[utils/checklistTemplates.ts]** Created. Questions per equipment type (7 for extinguishers, 6 for first aid, 6 for AEDs, 4 for signs, 3 other), each with a category and a severity. Copied into the inspection when assigned, so changing a template never alters existing inspections.
+- **[services/inspectionService.ts]** Created (Service layer). `assignInspection` (checks the equipment and staff are in the manager's workspace), `submitInspection`, `listAssignedTo`, `listInspections`, `markSynced`. Submitting: every question must be answered, Fail and Flag need a note, only known question ids are accepted, wording and severity come from the stored question, and the phone's finish time is used only if it is sensible. Repeating the same `submissionId` returns success without changes; a different one on a completed inspection is a 409. A successful submit sets the equipment's `lastInspectedAt`, which clears "Check overdue".
+- **[controllers/inspectionController.ts], [routes/inspectionRoutes.ts]** Rewritten. `GET /api/inspections` and `POST /api/inspections` are manager only; `GET /assigned/:userId` lets staff see only their own list; `POST /submit` and `PATCH /:id/sync` validate every field.
+- **[models/Equipment.ts]** `toJSON` skips the status calculation for partial copies (an inspection only includes name, type and location).
+
+### Frontend: offline layer
+- **[src/sw/sw.ts]** Created. Custom service worker (Workbox): precache, SPA navigation fallback, Network First for GET `/api/` answers (only 200s, 60 entries, 7 days), and the Background Sync handler (tag `upload-outbox`). `vite.config.ts` now uses `injectManifest`; Cyrillic, Greek and Vietnamese font files are skipped, Latin Extended is kept for macrons (ā, ē, ī, ō, ū).
+- **[services/offlineDb.ts]** Created. IndexedDB stores `inspections`, `drafts`, `outbox`.
+- **[services/outboxUploader.ts]** Created. Shared by the page and the service worker. Outcomes: uploaded, queued (offline, signed out, another person's checklist, server busy) or rejected. It never throws.
+- **[services/syncEvents.ts]** Created. **Observer pattern**: the uploader announces "outbox changed" and "upload finished"; the context, the task list and the toast subscribe.
+- **[context/SyncContext.tsx]** Created. **Context/Provider pattern**: exposes `waiting`, `failed`, `isUploading`, `submit`, `uploadNow`, `discard`. Listens for the browser coming back online and for service worker messages.
+- **Security detail:** on sign-out the cached task list and API cache are deleted, but unsent checklists stay, because that is someone's finished work. On a shared phone, a second person signing in cannot upload them (the server answers 403 and the entry is kept for its owner).
+
+### Frontend: screens
+- **Staff:** `InspectionList` (To do cards, waiting-to-upload card, recent), `ChecklistView` (grouped questions, collapsible groups, Pass / Fail / Flag, notes for Fail and Flag, progress, Submit; fixed bottom bar on phones, side panel on desktop). Pass / Fail / Flag buttons are 48px tall and at least 103px wide. A shared highlight slides to the chosen answer.
+- **Manager:** `Inspections` page (open and completed lists with results summary) and `AssignInspectionSheet`.
+- **Routing:** `/` redirects by role; `/inspections` shows the manager or staff version; `/inspections/:id` is staff only.
+- Hooks: `useMyInspections`, `useChecklist`, `useSync`, `useInspectionBoard`, `useAssignForm`.
+
+### Done check
+32 API checks (assign, list, permissions, validation, retry-safe submit, equipment status clearing, overdue tasks) and 34 browser checks in real Chrome against the production build with the API actually switched off: service worker active, Cache Storage and IndexedDB contents, reload with no signal, draft restored, Submit offline, outbox entry, automatic upload on reconnect, one record on the server, sign-out cleanup, manager sees results and assigns a new check.
 
 ---
 

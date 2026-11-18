@@ -63,7 +63,11 @@ equipmentSchema.set('toJSON', {
   transform(_doc, ret) {
     const plainEquipment = ret as unknown as Record<string, unknown>;
     delete plainEquipment.__v;
-    plainEquipment.status = calculateEquipmentStatus(plainEquipment as unknown as StatusInput);
+    // Partial copies (an inspection only asks for the name, type and location) have no expiry date,
+    // so there is nothing to calculate for them
+    if (plainEquipment.expiryDate) {
+      plainEquipment.status = calculateEquipmentStatus(plainEquipment as unknown as StatusInput);
+    }
     return plainEquipment;
   },
 });

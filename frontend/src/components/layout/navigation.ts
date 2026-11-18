@@ -1,4 +1,4 @@
-import { LayoutGrid, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react'
+import { ClipboardCheck, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react'
 import type { UserRole } from '@/types'
 
 export interface NavItem {
@@ -12,7 +12,7 @@ export interface NavItem {
 // One list drives both the desktop sidebar and the mobile drawer.
 // New pages are added here as each phase lands.
 export const navItems: NavItem[] = [
-  { label: 'Overview', to: '/', icon: LayoutGrid, roles: ['staff'] },
   { label: 'Equipment', to: '/equipment', icon: ShieldCheck, roles: ['manager'] },
+  { label: 'Inspections', to: '/inspections', icon: ClipboardCheck, roles: ['manager', 'staff'] },
   { label: 'Staff', to: '/staff', icon: UsersRound, roles: ['manager'] },
 ]

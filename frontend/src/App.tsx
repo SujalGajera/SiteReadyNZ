@@ -3,10 +3,12 @@ import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute, PublicOnlyRoute } from '@/components/routing/RouteGuards'
 import LoginPage from '@/pages/auth/Login'
 import RegisterPage from '@/pages/auth/Register'
-import HomePage from '@/pages/Home'
+import RootRedirect from '@/pages/RootRedirect'
 import EquipmentDashboardPage from '@/pages/manager/Dashboard'
 import EquipmentDetailPage from '@/pages/manager/EquipmentDetail'
 import StaffListPage from '@/pages/manager/StaffList'
+import InspectionsRoute from '@/pages/InspectionsRoute'
+import ChecklistViewPage from '@/pages/staff/ChecklistView'
 
 // Route table. Manager-only and staff-only pages are added as <ProtectedRoute roles={[...]}> groups
 // in the phases that build them.
@@ -22,7 +24,13 @@ export default function App() {
       {/* Signed-in pages (any role) inside the app frame */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/inspections" element={<InspectionsRoute />} />
+
+          {/* Staff-only: the checklist itself */}
+          <Route element={<ProtectedRoute roles={['staff']} />}>
+            <Route path="/inspections/:id" element={<ChecklistViewPage />} />
+          </Route>
 
           {/* Manager-only pages. Staff who type these URLs are sent home. */}
           <Route element={<ProtectedRoute roles={['manager']} />}>

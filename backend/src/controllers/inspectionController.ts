@@ -1,159 +1,63 @@
-// src/controllers/inspectionController.ts — Handles all inspection-related HTTP requests
-// Manages creating, retrieving, submitting, and syncing inspection records.
-// Offline sync support is handled via the syncStatus and completedAt fields.
+// src/controllers/inspectionController.ts — HTTP handlers for inspections.
+// Read the request, call inspectionService, send the response.
 
 import { Request, Response, NextFunction } from 'express';
-import { validationResult } from 'express-validator';
-import Inspection from '../models/Inspection';
+import { rejectIfInvalid } from '../utils/validation';
+import * as inspectionService from '../services/inspectionService';
+import type { AssignInput, Caller, SubmitInput } from '../services/inspectionService';
 
-/**
- * GET /api/inspections
- * Returns all inspections with equipment name and assigned staff name populated.
- * Managers use this to get an overview of all inspection activity.
- */
-export async function getAllInspections(
-  _req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+/** Who is calling, from the verified token */
+function callerOf(req: Request): Caller {
+  const { id, role, orgId } = req.user!;
+  return { id, role, orgId };
+}
+
+/** GET /api/inspections — every inspection in the workspace (manager, 200) */
+export async function getAllInspections(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const inspections = await Inspection.find()
-      .populate('equipmentId', 'name type location') // Include enough equipment info to display in the list
-      .populate('assignedStaffId', 'name email')      // Include staff contact info for manager reference
-      .sort({ scheduledDate: 1 });                    // Soonest due first
-
-    res.status(200).json(inspections);
+    res.status(200).json(await inspectionService.listInspections(req.user!.orgId));
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * GET /api/inspections/assigned/:userId
- * Returns only the inspections assigned to a specific staff member.
- * Staff members call this on login to load their personal task list.
- */
-export async function getAssignedInspections(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+/** GET /api/inspections/assigned/:userId — one person's list (200), or 403 if a staff member asks for someone else's */
+export async function getAssignedInspections(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { userId } = req.params;
-
-    const assignedInspections = await Inspection.find({
-      assignedStaffId: userId,
-    })
-      .populate('equipmentId', 'name type location')
-      .sort({ scheduledDate: 1 });
-
-    res.status(200).json(assignedInspections);
+    if (rejectIfInvalid(req, res)) return;
+    res.status(200).json(await inspectionService.listAssignedTo(req.params.userId, callerOf(req)));
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * POST /api/inspections
- * Creates a new inspection assignment. The inspection starts with status 'pending'
- * and an empty items array — items are filled in when the staff member submits.
- */
-export async function createInspection(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+/** POST /api/inspections — assign an inspection to a staff member (manager, 201) */
+export async function createInspection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const validationErrors = validationResult(req);
-    if (!validationErrors.isEmpty()) {
-      res.status(400).json({ errors: validationErrors.array() });
-      return;
-    }
-
-    const newInspection = await Inspection.create({
-      ...req.body,
-      status: 'pending',   // Always starts pending — staff cannot create pre-completed inspections
-      syncStatus: 'synced', // Created server-side so it is immediately in sync
-    });
-
-    res.status(201).json(newInspection);
+    if (rejectIfInvalid(req, res)) return;
+    const { equipmentId, assignedStaffId, scheduledDate } = req.body as AssignInput;
+    res.status(201).json(await inspectionService.assignInspection({ equipmentId, assignedStaffId, scheduledDate }, callerOf(req)));
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * POST /api/inspections/submit
- * Called when a staff member finishes an inspection (online or after coming back online).
- * Updates the checklist items, marks the inspection complete, and sets syncStatus to synced.
- */
-export async function submitInspection(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+/** POST /api/inspections/submit — save a finished checklist (200). Repeating the same upload is safe. */
+export async function submitInspection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const validationErrors = validationResult(req);
-    if (!validationErrors.isEmpty()) {
-      res.status(400).json({ errors: validationErrors.array() });
-      return;
-    }
-
-    const { inspectionId, items } = req.body as {
-      inspectionId: string;
-      items: unknown[];
-    };
-
-    const inspection = await Inspection.findById(inspectionId);
-
-    if (!inspection) {
-      res.status(404).json({ error: 'Inspection not found.' });
-      return;
-    }
-
-    // Store the completed checklist items submitted by the staff member
-    inspection.items = items as typeof inspection.items;
-    inspection.completedAt = new Date(); // Record exactly when the inspection was finished
-    inspection.status = 'completed';
-    inspection.syncStatus = 'synced'; // Now that it has reached the server, it is in sync
-
-    const submittedInspection = await inspection.save();
-
-    res.status(200).json(submittedInspection);
+    if (rejectIfInvalid(req, res)) return;
+    const { inspectionId, submissionId, completedAt, items } = req.body as SubmitInput;
+    res.status(200).json(await inspectionService.submitInspection({ inspectionId, submissionId, completedAt, items }, callerOf(req)));
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * PATCH /api/inspections/:id/sync
- * Called by the service worker's Background Sync when the device reconnects.
- * Marks an inspection as synced without requiring the full inspection data.
- */
-export async function syncInspection(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+/** PATCH /api/inspections/:id/sync — mark a finished inspection as uploaded (200) */
+export async function syncInspection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const inspection = await Inspection.findById(req.params.id);
-
-    if (!inspection) {
-      res.status(404).json({ error: 'Inspection not found.' });
-      return;
-    }
-
-    // Mark the record as synced — it reached the server successfully
-    inspection.syncStatus = 'synced';
-
-    // If the inspection was completed offline and completedAt was not set yet, record now
-    if (!inspection.completedAt && inspection.status === 'completed') {
-      inspection.completedAt = new Date();
-    }
-
-    const syncedInspection = await inspection.save();
-
-    res.status(200).json(syncedInspection);
+    if (rejectIfInvalid(req, res)) return;
+    res.status(200).json(await inspectionService.markSynced(req.params.id, callerOf(req)));
   } catch (error) {
     next(error);
   }

@@ -18,7 +18,6 @@ export interface ApiErrorBody {
   errors?: { field: string; message: string }[]
 }
 
-/** A single piece of emergency equipment managed by the system */
 export type EquipmentType = 'fire_extinguisher' | 'first_aid' | 'aed' | 'safety_sign' | 'other'
 export type EquipmentStatus = 'ok' | 'due_soon' | 'overdue' | 'expired'
 
@@ -30,7 +29,7 @@ export interface Equipment {
   serialNumber?: string
   purchaseDate?: string // ISO date string
   expiryDate: string // ISO date string, used to calculate status
-  /** Calculated from expiryDate. Never sent by the client. */
+  /** Calculated from the expiry date and the last check. Never sent by the client. */
   status: EquipmentStatus
   lastInspectedAt?: string
   createdAt?: string
@@ -48,33 +47,73 @@ export interface EquipmentFormValues {
   expiryDate: string
 }
 
-/** One item within a checklist, recording the inspector's finding */
+// ---------- Inspections ----------
+
+export type ChecklistAnswer = 'pass' | 'fail' | 'flag'
+export type ChecklistResult = ChecklistAnswer | 'not_checked'
+export type InspectionStatus = 'pending' | 'in_progress' | 'completed' | 'overdue'
+
+/** One question on a checklist and its answer */
 export interface ChecklistItem {
   itemId: string
   description: string
-  /** Groups items under a heading, e.g. "FIRE EQUIPMENT" */
+  /** Heading the question is grouped under, e.g. "Working condition" */
   category: string
-  result: 'pass' | 'fail' | 'flag' | 'not_checked'
-  notes: string
-  /** Only relevant when result === 'fail' */
-  severity: 'low' | 'medium' | 'critical' | null
+  severity: 'low' | 'medium' | 'critical'
+  result: ChecklistResult
+  notes?: string
 }
 
-/** A single inspection job: ties equipment to a staff member and their checklist results */
+/** The few equipment fields an inspection carries with it */
+export interface EquipmentSummary {
+  _id: string
+  name: string
+  type: EquipmentType
+  location: string
+}
+
+/** A job: one piece of equipment, one staff member, one due day */
 export interface Inspection {
   _id: string
-  equipmentId: string
-  assignedStaffId: string
-  scheduledDate: string // ISO date string
+  equipmentId: EquipmentSummary
+  /** A name object for managers' lists, a plain id in a staff member's own list */
+  assignedStaffId: string | { _id: string; name: string; email: string }
+  scheduledDate: string // ISO date, a calendar day
   completedAt: string | null
-  status: 'pending' | 'in_progress' | 'completed' | 'overdue'
-  /** Tracks whether this inspection has been uploaded to the server */
+  status: InspectionStatus
   syncStatus: 'synced' | 'pending_sync' | 'failed'
   items: ChecklistItem[]
-  // Populated fields returned by the API (may not always be present)
-  equipmentName?: string
-  staffName?: string
-  location?: string
+}
+
+/** What the manager's "assign" form sends */
+export interface AssignInspectionValues {
+  equipmentId: string
+  assignedStaffId: string
+  scheduledDate: string
+}
+
+/** One answer as it is sent to the server */
+export interface SubmittedAnswer {
+  itemId: string
+  result: ChecklistAnswer
+  notes: string
+}
+
+/** A finished checklist, waiting on the device to be uploaded */
+export interface OutboxEntry {
+  /** Random id made on the phone. The server uses it to ignore a repeated upload. */
+  submissionId: string
+  inspectionId: string
+  /** Who finished it. Only that person's session may upload it. */
+  userId: string
+  /** For display while it waits ("Extinguisher, hall") */
+  equipmentName: string
+  /** When the person pressed Submit, on the phone's clock */
+  completedAt: string
+  items: SubmittedAnswer[]
+  /** waiting = will be retried; failed = the server refused it, a person needs to look */
+  state: 'waiting' | 'failed'
+  error?: string
 }
 
 /** Push notification subscription details stored on the server */
