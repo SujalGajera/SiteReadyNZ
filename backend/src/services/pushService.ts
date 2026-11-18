@@ -1,60 +1,95 @@
-// src/services/pushService.ts — Business logic for sending Web Push notifications
-// Keeps the web-push library interaction out of the controller, making it
-// easier to test and swap out the push mechanism in the future (Repository/Service pattern).
+// src/services/pushService.ts — Everything about sending Web Push notifications.
+// Keeps the web-push library out of controllers, so it is easy to test and to swap later.
 
 import webPush from 'web-push';
 import PushSubscription from '../models/PushSubscription';
+import { isPushConfigured } from '../config/vapid';
+import { isTrustedPushEndpoint } from '../utils/pushEndpoint';
+import { AppError } from '../middleware/errorHandler';
 
-// Shape of the notification payload sent to the browser
-interface PushPayload {
+/** What the notification says and where tapping it goes */
+export interface PushPayload {
   title: string;
   body: string;
-  url?: string; // Optional deep-link the user is taken to when they tap the notification
+  /** Page to open when the notification is tapped, e.g. "/inspections/123" */
+  url?: string;
+  /** Notifications with the same tag replace each other instead of piling up */
+  tag?: string;
+}
+
+/** How a send went. `delivered` counts devices the push service accepted. */
+export interface PushResult {
+  devices: number;
+  delivered: number;
+  /** Devices that no longer exist (app uninstalled, permission removed); they were deleted */
+  removed: number;
+  failed: number;
+}
+
+export interface SubscriptionInput {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+function httpError(statusCode: number, message: string): AppError {
+  const error: AppError = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+/** Saves (or refreshes) one device for one user. Safe to call again for the same device. */
+export async function saveSubscription(userId: string, input: SubscriptionInput): Promise<void> {
+  if (!isTrustedPushEndpoint(input.endpoint)) {
+    throw httpError(400, 'That notification address is not from a known browser push service.');
+  }
+  // A browser has one subscription however many people sign in on it. If someone else was using this
+  // device before, it moves to the current person, so the last person's alerts never reach the next.
+  await PushSubscription.deleteMany({ endpoint: input.endpoint, userId: { $ne: userId } });
+  await PushSubscription.findOneAndUpdate(
+    { userId, endpoint: input.endpoint },
+    { userId, endpoint: input.endpoint, keys: input.keys },
+    { upsert: true, new: true }
+  );
+}
+
+/** Forgets a device, for when the person turns notifications off */
+export async function removeSubscription(userId: string, endpoint: string): Promise<void> {
+  await PushSubscription.deleteOne({ userId, endpoint });
 }
 
 /**
- * Finds all active push subscriptions for a user and sends a notification to each.
- * A user may have subscriptions on multiple devices — we send to all of them.
+ * Sends one notification to every device a user has registered (phone and laptop, say).
+ * Devices the push service reports as gone (404 or 410) are deleted so we stop trying them.
  */
-export async function sendPushToUser(
-  userId: string,
-  payload: PushPayload
-): Promise<void> {
-  // Retrieve every subscription this user has stored (could be phone + laptop, etc.)
+export async function sendPushToUser(userId: string, payload: PushPayload): Promise<PushResult> {
+  const result: PushResult = { devices: 0, delivered: 0, removed: 0, failed: 0 };
+  if (!isPushConfigured) return result;
+
   const subscriptions = await PushSubscription.find({ userId });
+  result.devices = subscriptions.length;
+  const message = JSON.stringify(payload);
 
-  if (subscriptions.length === 0) {
-    // The user has no subscriptions — they may not have granted notification permission yet
-    console.warn(`No push subscriptions found for user ${userId}`);
-    return;
-  }
-
-  // Build the JSON string once — reused for every device
-  const notificationPayload = JSON.stringify(payload);
-
-  // Send to all subscriptions in parallel for speed
-  const sendPromises = subscriptions.map(async (subscription) => {
-    try {
-      await webPush.sendNotification(
-        {
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: subscription.keys.p256dh,
-            auth: subscription.keys.auth,
-          },
-        },
-        notificationPayload
-      );
-    } catch (sendError) {
-      // Log the failure for this specific device but don't block the others.
-      // A 410 Gone error from the push service means the subscription is expired
-      // and should be removed from the database.
-      console.error(
-        `Failed to send push to endpoint ${subscription.endpoint}:`,
-        sendError
-      );
-    }
-  });
-
-  await Promise.allSettled(sendPromises); // Wait for all attempts, succeeded or not
+  await Promise.all(
+    subscriptions.map(async (subscription) => {
+      try {
+        await webPush.sendNotification(
+          { endpoint: subscription.endpoint, keys: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth } },
+          message,
+          // TTL: if the phone is off, the push service keeps the message for up to 12 hours
+          { TTL: 12 * 60 * 60, urgency: 'normal' }
+        );
+        result.delivered += 1;
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await subscription.deleteOne();
+          result.removed += 1;
+        } else {
+          result.failed += 1;
+          console.error(`Push to one device failed (status ${status ?? 'none'}):`, (error as Error).message);
+        }
+      }
+    })
+  );
+  return result;
 }

@@ -9,6 +9,7 @@ dotenv.config();
 import app from './src/app';
 import { connectToDatabase } from './src/config/db';
 import Equipment from './src/models/Equipment';
+import { startNotificationScheduler } from './src/jobs/notificationScheduler';
 
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
 
@@ -18,5 +19,6 @@ connectToDatabase().then(async () => {
   await Equipment.syncIndexes();
   app.listen(port, () => {
     console.log(`✅ SiteReady NZ API running on http://localhost:${port}`);
+    startNotificationScheduler();
   });
 });

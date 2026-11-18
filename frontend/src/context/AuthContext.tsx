@@ -1,6 +1,7 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, isNetworkError, SESSION_EXPIRED_EVENT } from '@/services/api'
 import { clearCachedInspections } from '@/services/offlineDb'
+import { detachDeviceFromCurrentUser } from '@/services/pushClient'
 import type { User } from '@/types'
 
 // Context/Provider Pattern: any component can read the signed-in user without props being
@@ -105,6 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const logout = useCallback(async () => {
+    // Stop this person's alerts reaching the phone. It must happen before the cookie is removed.
+    await detachDeviceFromCurrentUser().catch(() => undefined)
     try {
       // The server removes the cookie. If we are offline this fails, but we still sign out locally.
       await api.post('/auth/logout')

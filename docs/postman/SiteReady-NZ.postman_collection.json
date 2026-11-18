@@ -604,6 +604,122 @@
           }
         }
       ]
+    },
+    {
+      "name": "Push notifications",
+      "item": [
+        {
+          "name": "GET /api/push/public-key (expect 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('has a public key and no private key', () => { const b = pm.response.json(); pm.expect(b.publicKey).to.be.a('string'); pm.expect(JSON.stringify(b)).to.not.include('private'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/push/public-key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "push",
+                "public-key"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/push/send (manager, expect 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('reports devices and delivered', () => { const b = pm.response.json(); pm.expect(b.devices).to.be.a('number'); pm.expect(b.delivered).to.be.a('number'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": \"{{staffId}}\",\n  \"title\": \"Check due today\",\n  \"body\": \"Please inspect the extinguisher in reception.\",\n  \"url\": \"/inspections\"\n}"
+            },
+            "description": "Sends to a person in your own workspace. \"devices\" is how many phones or laptops they turned notifications on for, \"delivered\" is how many the push service accepted. Staff get 403; someone in another business gets 404. To see delivered above 0, turn reminders on in the app first, signed in as that staff member.",
+            "url": {
+              "raw": "{{baseUrl}}/api/push/send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "push",
+                "send"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/push/run-checks (manager, expect 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('has counts', () => { const b = pm.response.json(); pm.expect(b.reminders).to.be.a('number'); pm.expect(b.lateAlerts).to.be.a('number'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Runs the automatic checks now: reminders for checks due today or tomorrow, and alerts for checks more than a day late. The server also does this every 15 minutes by itself.",
+            "url": {
+              "raw": "{{baseUrl}}/api/push/run-checks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "push",
+                "run-checks"
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }

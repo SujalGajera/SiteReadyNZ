@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ContourBackdrop } from '@/components/brand/ContourBackdrop'
 import { BrandMark } from './BrandMark'
 import { NavLinks } from './NavLinks'
+import { NotificationCard } from './NotificationCard'
 import { UserCard } from './UserCard'
 
 /** Desktop sidebar (hidden below the md breakpoint, where the top bar and drawer take over) */
@@ -19,7 +20,8 @@ export function Sidebar() {
         <NavLinks group="sidebar" />
       </div>
 
-      <div className="relative p-3">
+      <div className="relative space-y-2.5 p-3">
+        <NotificationCard />
         <UserCard />
       </div>
     </aside>

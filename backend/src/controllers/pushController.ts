@@ -1,81 +1,78 @@
-// src/controllers/pushController.ts — Web Push notification endpoints
-// Handles storing browser push subscriptions and sending notifications to users.
-// The actual send logic lives in pushService.ts (single responsibility principle).
+// src/controllers/pushController.ts — HTTP handlers for push notifications.
+// Read the request, call the service, send the response.
 
 import { Request, Response, NextFunction } from 'express';
-import PushSubscription from '../models/PushSubscription';
-import { sendPushToUser } from '../services/pushService';
+import User from '../models/User';
+import { rejectIfInvalid } from '../utils/validation';
+import { isPushConfigured, publicVapidKey } from '../config/vapid';
+import { removeSubscription, saveSubscription, sendPushToUser, type SubscriptionInput } from '../services/pushService';
+import { runNotificationSweep } from '../services/notificationService';
 
-/**
- * POST /api/push/subscribe
- * Saves or updates a browser push subscription for the authenticated user.
- * Uses upsert so calling this multiple times for the same device is idempotent.
- */
-export async function subscribe(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+/** GET /api/push/public-key — the key the browser needs to subscribe (200), or 503 if push is switched off */
+export function getPublicKey(_req: Request, res: Response): void {
+  if (!isPushConfigured) {
+    res.status(503).json({ error: 'Push notifications are not set up on this server.' });
+    return;
+  }
+  res.status(200).json({ publicKey: publicVapidKey });
+}
+
+/** POST /api/push/subscribe — remember this device for the signed-in user (200). Repeating it is safe. */
+export async function subscribe(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const userId = req.user?.id;
+    if (rejectIfInvalid(req, res)) return;
+    await saveSubscription(req.user!.id, req.body as SubscriptionInput);
+    res.status(200).json({ message: 'This device will now get notifications.' });
+  } catch (error) {
+    next(error);
+  }
+}
 
-    if (!userId) {
-      res.status(401).json({ error: 'Not authenticated.' });
-      return;
-    }
-
-    const { endpoint, keys } = req.body as {
-      endpoint: string;
-      keys: { p256dh: string; auth: string };
-    };
-
-    if (!endpoint || !keys?.p256dh || !keys?.auth) {
-      res.status(400).json({ error: 'Missing required subscription fields: endpoint, keys.p256dh, keys.auth' });
-      return;
-    }
-
-    // Upsert — update if the endpoint already exists, create if it does not.
-    // This prevents duplicate subscriptions for the same device.
-    await PushSubscription.findOneAndUpdate(
-      { userId, endpoint },
-      { userId, endpoint, keys },
-      { upsert: true, new: true }
-    );
-
-    res.status(200).json({ message: 'Push subscription saved successfully.' });
+/** POST /api/push/unsubscribe — forget this device (204) */
+export async function unsubscribe(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (rejectIfInvalid(req, res)) return;
+    await removeSubscription(req.user!.id, (req.body as { endpoint: string }).endpoint);
+    res.status(204).send();
   } catch (error) {
     next(error);
   }
 }
 
 /**
- * POST /api/push/send
- * Triggers a push notification to a specific user (by userId).
- * Only managers can call this endpoint (enforced in the route definition).
+ * POST /api/push/send — a manager sends a notification to one person in their own workspace (200).
+ * The answer says how many of that person's devices received it (0 if they have not turned
+ * notifications on yet).
  */
-export async function sendNotification(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function sendNotification(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { targetUserId, title, body, url } = req.body as {
-      targetUserId: string;
-      title: string;
-      body: string;
-      url?: string;
-    };
+    if (rejectIfInvalid(req, res)) return;
+    const { targetUserId, title, body, url } = req.body as { targetUserId: string; title: string; body: string; url?: string };
 
-    if (!targetUserId || !title || !body) {
-      res.status(400).json({ error: 'targetUserId, title, and body are all required.' });
+    // The target must be in the manager's own workspace. Another business's user looks like a missing user.
+    const target = await User.findOne({ _id: targetUserId, organisationId: req.user!.orgId });
+    if (!target) {
+      res.status(404).json({ error: 'That person is not in your workspace.' });
       return;
     }
 
-    // Delegate the actual send to the service layer — the controller should not
-    // know the details of how web-push works
-    await sendPushToUser(targetUserId, { title, body, url });
+    const result = await sendPushToUser(String(target._id), { title, body, url, tag: 'manager-message' });
+    const message =
+      result.devices === 0
+        ? 'That person has not turned notifications on yet.'
+        : result.delivered > 0
+          ? 'Notification sent.'
+          : 'The notification could not be delivered to that person\u2019s device.';
+    res.status(200).json({ ...result, message });
+  } catch (error) {
+    next(error);
+  }
+}
 
-    res.status(200).json({ message: 'Notification sent successfully.' });
+/** POST /api/push/run-checks — run the reminder and overdue checks for this workspace right now (200) */
+export async function runChecks(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.status(200).json(await runNotificationSweep({ organisationId: req.user!.orgId }));
   } catch (error) {
     next(error);
   }

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
 import { BrandMark } from './BrandMark'
 import { NavLinks } from './NavLinks'
+import { NotificationCard } from './NotificationCard'
 import { UserCard } from './UserCard'
 
 /**
@@ -29,6 +30,7 @@ export function MobileNav() {
           </DrawerTitle>
           <DrawerDescription className="sr-only">Main navigation</DrawerDescription>
           <NavLinks group="drawer" onNavigate={() => setOpen(false)} />
+          <NotificationCard />
           <UserCard />
         </div>
       </DrawerContent>

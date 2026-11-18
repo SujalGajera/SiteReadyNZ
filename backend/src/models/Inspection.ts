@@ -29,6 +29,10 @@ export interface IInspection extends Document {
   syncStatus: 'synced' | 'pending_sync' | 'failed';
   /** Random id made by the phone for each completed checklist. Lets the server ignore a repeated upload. */
   submissionId?: string;
+  /** Set when the staff member was reminded that this is due soon, so they are only reminded once */
+  reminderSentAt?: Date;
+  /** Set when the manager was told this is more than a day late, so they are only told once */
+  overdueAlertSentAt?: Date;
   items: IInspectionItem[];
   createdAt: Date;
   updatedAt: Date;
@@ -57,6 +61,8 @@ const inspectionSchema = new Schema<IInspection>(
     status: { type: String, enum: ['pending', 'in_progress', 'completed', 'overdue'], default: 'pending' },
     syncStatus: { type: String, enum: ['synced', 'pending_sync', 'failed'], default: 'synced' },
     submissionId: { type: String, maxlength: 64 },
+    reminderSentAt: { type: Date },
+    overdueAlertSentAt: { type: Date },
     items: { type: [inspectionItemSchema], default: [] },
   },
   { timestamps: true }

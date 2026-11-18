@@ -66,3 +66,55 @@ async function uploadAndTellPages(): Promise<void> {
 self.addEventListener('sync', (event) => {
   if (event.tag === UPLOAD_SYNC_TAG) event.waitUntil(uploadAndTellPages())
 })
+
+// 4. Push notifications. The server sends JSON like { title, body, url, tag }.
+
+/** A path inside this app, or "/" if the server sent anything else (so a notification can never lead off-site) */
+function safeAppPath(candidate: unknown): string {
+  if (typeof candidate !== 'string') return '/'
+  try {
+    const target = new URL(candidate, self.location.origin)
+    return target.origin === self.location.origin ? target.pathname + target.search : '/'
+  } catch {
+    return '/'
+  }
+}
+
+self.addEventListener('push', (event) => {
+  let data: { title?: string; body?: string; url?: string; tag?: string } = {}
+  try {
+    data = event.data?.json() ?? {}
+  } catch {
+    data = { body: event.data?.text() } // not JSON: show it as plain text
+  }
+
+  // Every push must show a notification (browsers require it), so fall back to a generic one
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? 'SiteReady NZ', {
+      body: data.body ?? 'You have a new update.',
+      icon: '/icons/icon-192.png',
+      tag: data.tag, // the same tag replaces an older notification instead of stacking up
+      data: { url: safeAppPath(data.url) },
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = new URL(safeAppPath((event.notification.data as { url?: string } | undefined)?.url), self.location.origin).href
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      // If the app is already open somewhere, bring it forward and go to the right page
+      for (const open of windows) {
+        if ('focus' in open) {
+          await open.focus()
+          if ('navigate' in open) await open.navigate(target)
+          return
+        }
+      }
+      await self.clients.openWindow(target)
+    })()
+  )
+})

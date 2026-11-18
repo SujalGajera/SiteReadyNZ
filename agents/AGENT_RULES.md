@@ -126,12 +126,12 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 - **Done when:** Staff can complete checklist offline. Submission saves to IndexedDB. Syncs automatically on reconnect. Browser DevTools shows cache + IndexedDB entries.
 
 ### Phase 5 — Push Notifications
-- [ ] Generate VAPID keys (web-push CLI)
-- [ ] POST /api/push/subscribe (store subscription in DB)
-- [ ] POST /api/push/send (trigger from manager or cron)
-- [ ] Frontend: request notification permission, subscribe to push
-- [ ] Manager overdue notification (triggered after 24h)
-- [ ] Staff reminder notification (24h before due)
+- [x] Generate VAPID keys (web-push CLI)
+- [x] POST /api/push/subscribe (store subscription in DB)
+- [x] POST /api/push/send (trigger from manager or cron)
+- [x] Frontend: request notification permission, subscribe to push
+- [x] Manager overdue notification (triggered after 24h)
+- [x] Staff reminder notification (24h before due)
 - **Done when:** Postman can trigger a push. Browser receives notification. VAPID keys stored in .env.
 
 ### Phase 6 — Unit Testing + Troubleshooting

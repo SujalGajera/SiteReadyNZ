@@ -684,7 +684,40 @@ Based on common compliance practice (NZS 4503 for extinguishers, AS/NZS 1851 for
 
 ## Phase 5 — Push Notifications
 
-*(Entries will be added here as Phase 5 files are created)*
+**Audit findings fixed in the existing code:** the VAPID setup was never loaded by the sender, so nothing could ever have been sent. The server would POST to any address a client claimed was its "push endpoint" (a server-side request forgery risk). A manager could push to anyone in any business. Dead devices were never removed, and there was no way to switch notifications off.
+
+### How it works (plain English)
+1. The person taps **Turn on reminders**. The browser asks permission. If they say yes, the browser creates a subscription with Google's (or Mozilla's, or Apple's) push service and the app sends it to our server.
+2. The server remembers that device for that person.
+3. To notify someone, the server signs a message with its **private VAPID key** and gives it to the push service. The push service wakes the phone or laptop, and the **service worker** shows the notification, even if the app is closed.
+4. Tapping the notification opens the right page (for example the checklist).
+5. A timer on the server (every 15 minutes) and the manager's `run-checks` button look for two situations:
+   - **Staff reminder:** an inspection is due today or tomorrow and not done.
+   - **Manager alert:** an inspection is more than 24 hours late (the due day is over plus one more whole day).
+   Each inspection is notified only once. The "sent" time is saved only after a device really received the message, so someone who turns notifications on later is still told.
+
+### Backend
+- **[config/vapid.ts]** Rewritten. VAPID keys loaded once; `isPushConfigured`; only the public key is exported. The private key stays in `backend/.env` and never reaches the browser (keys generated this session and written to `.env`; `.env.example` still holds placeholders).
+- **[utils/pushEndpoint.ts]** Created. Accepts only `https` addresses on real push services (`fcm.googleapis.com`, Mozilla, Windows, Apple) with no embedded password. Blocks `localhost`, cloud-metadata addresses, lookalikes such as `fcm.googleapis.com.evil.com`, and other sites.
+- **[services/pushService.ts]** Rewritten (Service layer). `saveSubscription`, `removeSubscription`, `sendPushToUser`. Devices that the push service reports gone (404 or 410) are deleted. A device belongs to one person at a time, so on a shared phone the last person to subscribe owns it. Messages live 12 hours if the phone is off.
+- **[services/notificationService.ts]** Created. `runNotificationSweep` with the two rules above and the once-only markers `reminderSentAt` and `overdueAlertSentAt` (new fields on `Inspection`).
+- **[jobs/notificationScheduler.ts]** Created. Runs the sweep at start and every `NOTIFICATION_SWEEP_MINUTES` (default 15). A failed sweep never stops the server.
+- **[controllers/pushController.ts], [routes/pushRoutes.ts]** Rewritten.
+  - `GET /api/push/public-key` (200, or 503 if push is off)
+  - `POST /api/push/subscribe` (200, repeating is safe) and `POST /api/push/unsubscribe` (204)
+  - `POST /api/push/send` (manager only, only to people in the same workspace, `url` must be a path inside the app) returns `{ devices, delivered, removed, failed, message }`. The message says plainly when the person has not turned notifications on or the device could not be reached.
+  - `POST /api/push/run-checks` (manager only)
+
+### Frontend
+- **[sw/sw.ts]** Added the `push` handler (shows the notification) and `notificationclick` (focuses an open tab or opens a new one at the right page). A link outside this site is ignored, so a notification can never lead somewhere else.
+- **[services/pushClient.ts]** Created. Support check, permission, subscribe, unsubscribe, and two shared-phone helpers: attach this device to whoever signs in, and detach it when they sign out. It gives up after 4 seconds if there is no service worker, so signing out can never hang.
+- **[hooks/usePushNotifications.ts], [components/layout/NotificationCard.tsx]** Created. A card above the user card (sidebar and phone menu) with four honest states: on, off, **blocked** (explains how to allow it in the browser settings and says the app works without it), and **not available** (for example an iPhone where the app is not on the Home Screen yet).
+
+### Done check
+- **27 API checks:** public key, subscribing, all five unsafe addresses refused, staff 403, other business 404, validation, shared-phone move, unsubscribe, run-checks.
+- **16 checks in real Chrome:** allowing notifications, a real subscription from Google's push service, a manager's message delivered with the right text and link, the staff reminder, the manager's late alert naming the person and the equipment, nothing repeated, completed inspections ignored, turning off, and the blocked state.
+- **Regression:** submitting a checklist, equipment status and sign-out still work (9 checks).
+- **Test scripts** saved in `docs/test-scripts/` with a README.
 
 ---
 
