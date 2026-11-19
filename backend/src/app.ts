@@ -4,8 +4,8 @@
 
 import express, { Application } from 'express';
 import cors from 'cors';
-import morgan from 'morgan';
 import helmet from 'helmet';
+import { requestLogger } from './middleware/logger';
 import cookieParser from 'cookie-parser';
 
 import authRoutes from './routes/authRoutes';
@@ -37,8 +37,8 @@ app.use(express.json({ limit: '1mb' }));
 // Makes the httpOnly login cookie available as req.cookies
 app.use(cookieParser());
 
-// Log every request to the console in development-friendly format
-app.use(morgan('dev'));
+// Log every request (through Morgan into Winston, so it also reaches logs/combined.log)
+app.use(requestLogger);
 
 // ----- Route mounts -----
 // Auth routes handle register, login and Google OAuth — no JWT guard here

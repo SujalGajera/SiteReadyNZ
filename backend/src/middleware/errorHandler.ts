@@ -3,6 +3,7 @@
 // Centralising error responses here means controllers never format error messages themselves.
 
 import { Request, Response, NextFunction } from 'express';
+import logger from '../config/logger';
 
 // Custom error type that allows attaching an HTTP status code to any thrown error.
 // `status` is what body-parser uses (for example 400 on malformed JSON).
@@ -17,7 +18,7 @@ export interface AppError extends Error {
  */
 export function globalErrorHandler(
   error: AppError,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction
 ): void {
@@ -41,13 +42,20 @@ export function globalErrorHandler(
   const statusCode = error.statusCode ?? error.status ?? 500;
 
   if (statusCode >= 500) {
-    // Real server faults get the full stack trace in the log for debugging
-    console.error('❌ Unhandled error:', error);
+    // Real server faults are logged with the stack trace and enough context to find the request
+    logger.error('Unhandled server error', {
+      message: error.message,
+      stack: error.stack,
+      method: req.method,
+      url: req.originalUrl,
+      userId: req.user?.id,
+    });
     // The client only gets a generic message so internals are never leaked
     res.status(statusCode).json({ error: 'An unexpected server error occurred.' });
     return;
   }
 
-  // Expected problems (wrong password, duplicate email, bad JSON) are safe to explain
+  // Expected problems (wrong password, duplicate email, bad JSON) are safe to explain, and noted at warn level
+  logger.warn(`${statusCode} ${req.method} ${req.originalUrl}: ${error.message}`);
   res.status(statusCode).json({ error: error.message });
 }

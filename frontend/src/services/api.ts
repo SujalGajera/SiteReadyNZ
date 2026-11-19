@@ -1,7 +1,10 @@
 import axios, { AxiosError } from 'axios'
 import type { ApiErrorBody } from '@/types'
+import { API_BASE_URL } from '@/config/env'
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+// Re-exported so existing imports (import { API_BASE_URL } from '@/services/api') keep working
+export { API_BASE_URL }
+
 
 /** Fired when the server says the session is no longer valid. AuthContext listens for it. */
 export const SESSION_EXPIRED_EVENT = 'siteready:session-expired'

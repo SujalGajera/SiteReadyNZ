@@ -1,9 +1,13 @@
-// src/middleware/logger.ts — HTTP request logger middleware
-// Uses Morgan's 'dev' preset which prints coloured, concise request summaries
-// to the console. Useful during development and QA for seeing every request at a glance.
+// src/middleware/logger.ts — Writes one line per HTTP request through Winston.
+// Morgan measures the request (method, address, status, time) and hands the finished line to Winston,
+// so request lines end up on screen and in logs/combined.log with everything else.
 
 import morgan from 'morgan';
+import logger from '../config/logger';
 
-// 'dev' format: METHOD URL STATUS response-time ms - size bytes
-// Example output: GET /api/equipment 200 12.345 ms - 1234
-export const requestLogger = morgan('dev');
+// Do not log passwords or tokens: only the address and status are written, never the body or headers
+const requestLogger = morgan(':method :url :status :res[content-length] - :response-time ms', {
+  stream: { write: (line: string) => logger.http(line.trim()) },
+});
+
+export { requestLogger };

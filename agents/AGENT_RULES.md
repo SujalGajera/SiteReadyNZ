@@ -135,11 +135,11 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 - **Done when:** Postman can trigger a push. Browser receives notification. VAPID keys stored in .env.
 
 ### Phase 6 — Unit Testing + Troubleshooting
-- [ ] Jest setup on both frontend and backend
-- [ ] Frontend: test critical components (StatusBadge, ChecklistItem, validators)
-- [ ] Backend: test controller functions (equipment CRUD, auth)
-- [ ] Add error logging middleware (Morgan + Winston or Pino)
-- [ ] Debug session with VS Code variable watchers — screenshot captured
+- [x] Jest setup on both frontend and backend
+- [x] Frontend: test critical components (StatusBadge, ChecklistItem, validators)
+- [x] Backend: test controller functions (equipment CRUD, auth)
+- [x] Add error logging middleware (Morgan + Winston or Pino)
+- [ ] Debug session with VS Code variable watchers — screenshot captured (waiting on Sujal: take docs/screenshots/debug-01-watchers.png, steps in docs/DEBUGGING.md)
 - **Done when:** `npm test` passes on both. At least 5 meaningful assertions per feature. Debug screenshot captured.
 
 ### Phase 7 — Design Pattern Refactor

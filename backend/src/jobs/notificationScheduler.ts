@@ -4,6 +4,7 @@
 // inspection still stop people being notified twice.
 
 import { runNotificationSweep } from '../services/notificationService';
+import logger from '../config/logger';
 
 const DEFAULT_INTERVAL_MINUTES = 15;
 
@@ -15,16 +16,16 @@ export function startNotificationScheduler(): () => void {
     try {
       const result = await runNotificationSweep();
       if (result.reminders > 0 || result.lateAlerts > 0) {
-        console.log(`🔔 Notifications sent: ${result.reminders} reminder(s), ${result.lateAlerts} late alert(s)`);
+        logger.info(`Notifications sent: ${result.reminders} reminder(s), ${result.lateAlerts} late alert(s)`);
       }
     } catch (error) {
       // A failed sweep must never crash the server. It simply tries again next time.
-      console.error('Notification sweep failed:', error);
+      logger.error('Notification sweep failed', { message: (error as Error).message, stack: (error as Error).stack });
     }
   }
 
   void sweep(); // once at start, so a restart does not delay reminders by 15 minutes
   const timer = setInterval(() => void sweep(), minutes * 60 * 1000);
-  console.log(`🔔 Notification checks run every ${minutes} minutes`);
+  logger.info(`Notification checks run every ${minutes} minutes`);
   return () => clearInterval(timer);
 }

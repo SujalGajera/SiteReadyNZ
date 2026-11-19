@@ -9,8 +9,8 @@
 import type { OutboxEntry } from '@/types'
 import { getAllOutbox, markOutboxFailed, removeFromOutbox } from '@/services/offlineDb'
 import type { UploadSummary } from '@/services/syncEvents'
+import { API_BASE_URL } from '@/config/env'
 
-const API_BASE_URL: string = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 /** What happened to one upload attempt */
 export type UploadOutcome =

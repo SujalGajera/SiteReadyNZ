@@ -6,6 +6,7 @@ import PushSubscription from '../models/PushSubscription';
 import { isPushConfigured } from '../config/vapid';
 import { isTrustedPushEndpoint } from '../utils/pushEndpoint';
 import { AppError } from '../middleware/errorHandler';
+import logger from '../config/logger';
 
 /** What the notification says and where tapping it goes */
 export interface PushPayload {
@@ -86,7 +87,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           result.removed += 1;
         } else {
           result.failed += 1;
-          console.error(`Push to one device failed (status ${status ?? 'none'}):`, (error as Error).message);
+          logger.warn(`Push to one device failed (status ${status ?? 'none'}): ${(error as Error).message}`);
         }
       }
     })

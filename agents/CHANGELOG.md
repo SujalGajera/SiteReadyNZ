@@ -723,7 +723,32 @@ Based on common compliance practice (NZS 4503 for extinguishers, AS/NZS 1851 for
 
 ## Phase 6 — Unit Testing & Troubleshooting
 
-*(Entries will be added here as Phase 6 files are created)*
+**Plain English:** this phase proves the important rules work by writing small automatic checks (tests), and it makes the server write down what happens (logs) so problems can be found later.
+
+### Logging (backend)
+- **[config/logger.ts]** Created. **Winston** logger. Writes to the console and to two files in `backend/logs/`: `error.log` (errors only) and `combined.log` (everything). Each line has a time, a level and a message.
+- **[middleware/logger.ts]** Rewritten. **Morgan** records every request (method, address, status, time) and passes it into Winston, so requests and errors end up in one place.
+- **[middleware/errorHandler.ts], [server.ts], [config/db.ts], [config/passport.ts], [config/vapid.ts], [services/pushService.ts], [jobs/notificationScheduler.ts]** All `console.log` / `console.error` calls replaced with the logger.
+- `logs/` is ignored by git. `.vscode/launch.json` is allowed through the ignore rules.
+
+### Tests
+- **Tooling:** Jest on both sides (the rubric names Jest and React Testing Library). Scripts `npm test` and `npm run test:coverage` in `backend` and `frontend`.
+- **Backend** (`backend/src/tests/`, 16 suites, **174 tests**, about 95% of lines covered): auth, staff, equipment CRUD, inspections (assign, submit, retry-safe upload, 409 and 403 cases), push (including the unsafe-address guard), notification sweep, status calculator, JWT helper, role guard, error handler.
+- **Frontend** (`frontend/src/tests/`, 19 suites, **258 tests**, about 49% of lines covered overall, 100% on the logic that matters): status badge, checklist logic, equipment filters, form fields, answer toggle, checklist row, readiness hero, route guards, notification card, validators, offline outbox, sync context.
+- **Mutation check** ("break the rule on purpose, confirm a test fails"): done on both sides. Every deliberate break was caught.
+- **Config:** `backend/jest.config.js`; `frontend/jest.config.cjs` + `tsconfig.jest.json`. `src/config/env.ts` wraps `import.meta.env` so Jest can replace it. Tests are excluded from the backend build.
+
+### Bug found by the tests and fixed
+- **[context/SyncContext.tsx]** The "upload waiting checklists when the app opens with signal" step read an empty in-memory list, so nothing was uploaded until the person tapped the button. It now reads the unsent checklists straight from IndexedDB (`getOutboxFor`). Related small changes in `services/outboxUploader.ts` and `services/api.ts`.
+
+### Debugging and troubleshooting docs
+- **[.vscode/launch.json]** Debug the API, debug the open backend or frontend test file, debug in Chrome.
+- **[docs/DEBUGGING.md]** Step-by-step: where to put the breakpoints in `inspectionService.ts`, which watchers to add (`input.submissionId`, `inspection.status`, `caller.role`, `input.items.length`, `answers.size`), and how to take the screenshot.
+- **[docs/TROUBLESHOOTING.md]** 10 problems found and fixed, the security fixes, how to read the logs, and the safety nets.
+- **[docs/screenshots/]** Folder for screenshots. The debug screenshot `debug-01-watchers.png` has to be taken by Sujal in VS Code (see DEBUGGING.md).
+
+### Done check
+`npm test` passes on both sides (174 + 258). Both production builds pass.
 
 ---
 

@@ -90,12 +90,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [tellPerson])
 
-  // Back online (or the page opens with signal and something is waiting): upload.
+  // Back online, or the app opens with signal while something is still waiting: upload.
+  // It reads the outbox from the device itself rather than from React state, because on first load the
+  // state is still empty. (Browsers without Background Sync, such as iPhones, rely on this path.)
+  // Only the connection or the person changing starts it, so a failed attempt can never retry in a loop.
   useEffect(() => {
-    if (isOnline && user && entries.some((entry) => entry.state === 'waiting')) void uploadNow()
-    // `entries` is deliberately not a trigger: only the connection or the user changing should start an upload,
-    // otherwise a failed attempt would immediately retry in a loop
-  }, [isOnline, user])
+    if (!isOnline || !user) return
+    let cancelled = false
+    void getOutboxFor(user.id).then((stored) => {
+      if (!cancelled && stored.some((entry) => entry.state === 'waiting')) void uploadNow()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isOnline, user, uploadNow])
 
   // The service worker uploads in the background and reports back
   useEffect(() => {

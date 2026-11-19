@@ -8,8 +8,12 @@ node_modules/
 dist/
 dev-dist/
 
-# Editor and OS noise
-.vscode/
+# Log files written by the backend
+logs/
+
+# Editor and OS noise (the shared debug setup in .vscode/launch.json is kept on purpose)
+.vscode/*
+!.vscode/launch.json
 .DS_Store
 Thumbs.db
 *.log

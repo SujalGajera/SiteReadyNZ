@@ -4,6 +4,7 @@
 // never sent to the browser; only the public key is shared (GET /api/push/public-key).
 
 import webPush from 'web-push';
+import logger from './logger';
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
@@ -17,10 +18,10 @@ export const isPushConfigured = isReal(vapidPublicKey) && isReal(vapidPrivateKey
 if (isPushConfigured) {
   // Register the details once; web-push then uses them on every sendNotification call
   webPush.setVapidDetails(vapidEmail as string, vapidPublicKey as string, vapidPrivateKey as string);
-  console.log('✅ VAPID keys configured for Web Push');
+  logger.info('VAPID keys configured for Web Push');
 } else {
   // The rest of the app works without push, so warn instead of stopping the server
-  console.warn('⚠️  VAPID keys are not configured. Push notifications are disabled. Run: npx web-push generate-vapid-keys');
+  logger.warn('VAPID keys are not configured, so push notifications are disabled. Run: npx web-push generate-vapid-keys');
 }
 
 /** Safe to share with browsers. Empty when push is not configured. */
