@@ -153,7 +153,7 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 ### Phase 8 — Report & Final Polish
 - [ ] All screenshots captured per design document plan (12 screenshots minimum)
 - [ ] Final report written with explanations
-- [ ] GitHub repo URL ready
+- [x] GitHub repo URL ready - https://github.com/SujalGajera/SiteReadyNZ (private; make it public or add your marker before submitting)
 - [ ] Code zipped as `<StudentID>-<Name>.zip`
 - **Done when:** ZIP uploaded to Moodle. Report submitted.
 
