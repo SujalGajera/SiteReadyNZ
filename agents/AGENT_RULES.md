@@ -139,7 +139,7 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 - [x] Frontend: test critical components (StatusBadge, ChecklistItem, validators)
 - [x] Backend: test controller functions (equipment CRUD, auth)
 - [x] Add error logging middleware (Morgan + Winston or Pino)
-- [ ] Debug session with VS Code variable watchers — screenshot captured (waiting on Sujal: take docs/screenshots/debug-01-watchers.png, steps in docs/DEBUGGING.md)
+- [x] Debug session with VS Code variable watchers — screenshot captured (docs/screenshots/debug-01-watchers.png)
 - **Done when:** `npm test` passes on both. At least 5 meaningful assertions per feature. Debug screenshot captured.
 
 ### Phase 7 — Design Pattern Refactor
@@ -246,7 +246,7 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
   - PUT /api/equipment/:id → 200
   - DELETE /api/equipment/:id → 204
   - POST /api/push/send → 200
-- [ ] Debug session screenshot (VS Code with variable watchers active)
+- [x] Debug session screenshot (VS Code with variable watchers active) - docs/screenshots/debug-01-watchers.png
 
 ---
 

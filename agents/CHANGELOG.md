@@ -745,7 +745,7 @@ Based on common compliance practice (NZS 4503 for extinguishers, AS/NZS 1851 for
 - **[.vscode/launch.json]** Debug the API, debug the open backend or frontend test file, debug in Chrome.
 - **[docs/DEBUGGING.md]** Step-by-step: where to put the breakpoints in `inspectionService.ts`, which watchers to add (`input.submissionId`, `inspection.status`, `caller.role`, `input.items.length`, `answers.size`), and how to take the screenshot.
 - **[docs/TROUBLESHOOTING.md]** 10 problems found and fixed, the security fixes, how to read the logs, and the safety nets.
-- **[docs/screenshots/]** Folder for screenshots. The debug screenshot `debug-01-watchers.png` has to be taken by Sujal in VS Code (see DEBUGGING.md).
+- **[docs/screenshots/debug-01-watchers.png]** Debug screenshot taken by Sujal in VS Code: paused at the breakpoint on `chooseCompletedAt` (line 129) in `submitInspection`, with the watchers `input.submissionId = 'sub-0001-aaaa'`, `inspection.status = 'pending'`, `caller.role = 'staff'`, `input.items.length = 3` and `answers.size = 3`. A second breakpoint is on line 108.
 
 ### Done check
 `npm test` passes on both sides (174 + 258). Both production builds pass.
