@@ -143,11 +143,11 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 - **Done when:** `npm test` passes on both. At least 5 meaningful assertions per feature. Debug screenshot captured.
 
 ### Phase 7 — Design Pattern Refactor
-- [ ] Apply **Repository Pattern** to data access layer (backend)
-- [ ] Apply **Context/Provider Pattern** to React state (frontend)
-- [ ] Apply **Strategy Pattern** to status calculation logic
-- [ ] Apply **Observer Pattern** to sync events
-- [ ] Code comments updated to reflect patterns
+- [x] Apply **Repository Pattern** to data access layer (backend)
+- [x] Apply **Context/Provider Pattern** to React state (frontend)
+- [x] Apply **Strategy Pattern** to status calculation logic
+- [x] Apply **Observer Pattern** to sync events
+- [x] Code comments updated to reflect patterns
 - **Done when:** Each pattern is documented in CHANGELOG with context explanation.
 
 ### Phase 8 — Report & Final Polish

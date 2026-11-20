@@ -1,9 +1,11 @@
 // src/services/authService.ts — Business rules for accounts and passwords.
 // Controllers call these functions; only this file knows how passwords are hashed
 // and how a login is checked (AGENT_RULES: controllers thin, services thick).
+// Stored accounts are read and written through repositories/userRepository.ts (Repository pattern).
 
 import bcrypt from 'bcryptjs';
-import User, { IUser, UserRole } from '../models/User';
+import type { IUser, UserRole } from '../models/User';
+import { userRepository } from '../repositories/userRepository';
 import { AppError } from '../middleware/errorHandler';
 
 // bcrypt cost factor. 12 is the minimum required by AGENT_RULES.
@@ -34,14 +36,14 @@ export async function registerUser(
 ): Promise<IUser> {
   const email = input.email.trim().toLowerCase();
 
-  const existingUser = await User.findOne({ email });
+  const existingUser = await userRepository.findByEmail(email);
   if (existingUser) {
     throw httpError(409, 'An account with this email already exists.');
   }
 
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_SALT_ROUNDS);
 
-  return User.create({
+  return userRepository.create({
     name: input.name.trim(),
     email,
     passwordHash,
@@ -55,8 +57,8 @@ export async function registerUser(
  * "wrong password" so an attacker cannot use the response to discover which emails exist.
  */
 export async function authenticateUser(email: string, password: string): Promise<IUser> {
-  // passwordHash is not selected by default, so ask for it explicitly here
-  const user = await User.findOne({ email: email.trim().toLowerCase() }).select('+passwordHash');
+  // The password hash is hidden by default, so this lookup asks for it explicitly
+  const user = await userRepository.findByEmailWithPassword(email.trim().toLowerCase());
 
   const passwordIsCorrect = user ? await user.comparePassword(password) : false;
   if (!user || !passwordIsCorrect) {
@@ -68,7 +70,7 @@ export async function authenticateUser(email: string, password: string): Promise
 
 /** Looks up the user a valid token belongs to. Throws 401 if the account was deleted. */
 export async function getUserById(userId: string): Promise<IUser> {
-  const user = await User.findById(userId);
+  const user = await userRepository.findById(userId);
   if (!user) {
     throw httpError(401, 'This account no longer exists. Please sign in again.');
   }

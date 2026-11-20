@@ -10,8 +10,8 @@ This needs no servers and no database.
 1. In VS Code open **`backend/src/tests/inspectionService.test.ts`**. Leave it as the active tab.
 2. Open **`backend/src/services/inspectionService.ts`** in a second tab and click in the grey space left of
    line numbers to set a **red breakpoint** on these lines:
-   - the line `const answers = new Map(...)` (about line 108)
-   - the line `const completedAt = chooseCompletedAt(...)` (about line 129)
+   - the line `const answers = new Map(...)` (about line 102)
+   - the line `const completedAt = chooseCompletedAt(...)` (about line 123)
 3. Go back to the test file tab. Press **F5**, and choose **"Debug the open backend test file"**.
 4. VS Code pauses on the first breakpoint. In the left **Run and Debug** panel you now see **Variables**, **Watch**,
    **Call Stack** and **Breakpoints**.

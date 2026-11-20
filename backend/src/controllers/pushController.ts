@@ -2,7 +2,7 @@
 // Read the request, call the service, send the response.
 
 import { Request, Response, NextFunction } from 'express';
-import User from '../models/User';
+import { userRepository } from '../repositories/userRepository';
 import { rejectIfInvalid } from '../utils/validation';
 import { isPushConfigured, publicVapidKey } from '../config/vapid';
 import { removeSubscription, saveSubscription, sendPushToUser, type SubscriptionInput } from '../services/pushService';
@@ -50,7 +50,7 @@ export async function sendNotification(req: Request, res: Response, next: NextFu
     const { targetUserId, title, body, url } = req.body as { targetUserId: string; title: string; body: string; url?: string };
 
     // The target must be in the manager's own workspace. Another business's user looks like a missing user.
-    const target = await User.findOne({ _id: targetUserId, organisationId: req.user!.orgId });
+    const target = await userRepository.findInOrganisation(targetUserId, req.user!.orgId);
     if (!target) {
       res.status(404).json({ error: 'That person is not in your workspace.' });
       return;

@@ -1,4 +1,4 @@
-import User from '../models/User';
+import { userRepository } from '../repositories/userRepository';
 import { createInspection, getAllInspections, getAssignedInspections, submitInspection, syncInspection } from '../controllers/inspectionController';
 import { addStaff, getStaff } from '../controllers/staffController';
 import { createStaff, listStaff } from '../services/staffService';
@@ -8,10 +8,11 @@ import { fakeNext, fakeRequest, fakeResponse, MANAGER, STAFF } from './helpers';
 import type { IInspection } from '../models/Inspection';
 
 jest.mock('../services/inspectionService');
-jest.mock('../models/User', () => ({ __esModule: true, default: { find: jest.fn() } }));
+jest.mock('../repositories/userRepository', () => ({ userRepository: { listStaff: jest.fn() } }));
 jest.mock('../services/authService', () => ({ registerUser: jest.fn() }));
 
 const service = inspectionService as jest.Mocked<typeof inspectionService>;
+const users = userRepository as jest.Mocked<typeof userRepository>;
 const inspection = { _id: 'insp-1' } as unknown as IInspection;
 
 describe('inspection controller', () => {
@@ -74,11 +75,9 @@ describe('inspection controller', () => {
 
 describe('staff service and controller', () => {
   it('lists only STAFF in the manager\'s workspace, alphabetically', async () => {
-    const sort = jest.fn().mockResolvedValue([]);
-    (User as unknown as { find: jest.Mock }).find.mockReturnValue({ sort });
+    users.listStaff.mockResolvedValue([]);
     await listStaff('org-1');
-    expect((User as unknown as { find: jest.Mock }).find).toHaveBeenCalledWith({ role: 'staff', organisationId: 'org-1' });
-    expect(sort).toHaveBeenCalledWith({ name: 1 });
+    expect(users.listStaff).toHaveBeenCalledWith('org-1');
   });
 
   it('creates staff inside the manager\'s workspace with the staff role', async () => {
@@ -88,7 +87,7 @@ describe('staff service and controller', () => {
 
   it('GET staff answers 200 with the list for the manager\'s workspace', async () => {
     const res = fakeResponse();
-    (User as unknown as { find: jest.Mock }).find.mockReturnValue({ sort: jest.fn().mockResolvedValue([{ name: 'Tane' }]) });
+    users.listStaff.mockResolvedValue([{ name: 'Tane' }] as never);
     await getStaff(fakeRequest({ user: MANAGER }), res, fakeNext());
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith([{ name: 'Tane' }]);

@@ -1,8 +1,9 @@
 // src/services/pushService.ts — Everything about sending Web Push notifications.
 // Keeps the web-push library out of controllers, so it is easy to test and to swap later.
+// Saved devices are read and written through repositories/pushSubscriptionRepository.ts (Repository pattern).
 
 import webPush from 'web-push';
-import PushSubscription from '../models/PushSubscription';
+import { pushSubscriptionRepository } from '../repositories/pushSubscriptionRepository';
 import { isPushConfigured } from '../config/vapid';
 import { isTrustedPushEndpoint } from '../utils/pushEndpoint';
 import { AppError } from '../middleware/errorHandler';
@@ -45,17 +46,13 @@ export async function saveSubscription(userId: string, input: SubscriptionInput)
   }
   // A browser has one subscription however many people sign in on it. If someone else was using this
   // device before, it moves to the current person, so the last person's alerts never reach the next.
-  await PushSubscription.deleteMany({ endpoint: input.endpoint, userId: { $ne: userId } });
-  await PushSubscription.findOneAndUpdate(
-    { userId, endpoint: input.endpoint },
-    { userId, endpoint: input.endpoint, keys: input.keys },
-    { upsert: true, new: true }
-  );
+  await pushSubscriptionRepository.removeFromOtherUsers(input.endpoint, userId);
+  await pushSubscriptionRepository.upsert(userId, input.endpoint, input.keys);
 }
 
 /** Forgets a device, for when the person turns notifications off */
 export async function removeSubscription(userId: string, endpoint: string): Promise<void> {
-  await PushSubscription.deleteOne({ userId, endpoint });
+  await pushSubscriptionRepository.remove(userId, endpoint);
 }
 
 /**
@@ -66,7 +63,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   const result: PushResult = { devices: 0, delivered: 0, removed: 0, failed: 0 };
   if (!isPushConfigured) return result;
 
-  const subscriptions = await PushSubscription.find({ userId });
+  const subscriptions = await pushSubscriptionRepository.findByUser(userId);
   result.devices = subscriptions.length;
   const message = JSON.stringify(payload);
 
@@ -83,7 +80,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) {
-          await subscription.deleteOne();
+          await pushSubscriptionRepository.delete(subscription);
           result.removed += 1;
         } else {
           result.failed += 1;

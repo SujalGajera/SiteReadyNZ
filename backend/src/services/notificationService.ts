@@ -8,9 +8,10 @@
 // writes a "sent" time on it, but only after a device really received the message, so someone who
 // switches notifications on later still gets told.
 
-import Inspection, { IInspection } from '../models/Inspection';
-import Equipment from '../models/Equipment';
-import User from '../models/User';
+import type { IInspection } from '../models/Inspection';
+import { inspectionRepository } from '../repositories/inspectionRepository';
+import { equipmentRepository } from '../repositories/equipmentRepository';
+import { userRepository } from '../repositories/userRepository';
 import { daysUntilExpiry as daysUntilDay } from '../utils/statusCalculator';
 import { sendPushToUser } from './pushService';
 
@@ -38,8 +39,8 @@ function formatDay(date: Date): string {
 
 /** Friendly names for the notification text, fetched in two queries instead of one per inspection */
 async function loadNames(inspections: IInspection[]) {
-  const equipment = await Equipment.find({ _id: { $in: inspections.map((i) => i.equipmentId) } }).select('name');
-  const people = await User.find({ _id: { $in: inspections.map((i) => i.assignedStaffId) } }).select('name');
+  const equipment = await equipmentRepository.findNamesByIds(inspections.map((i) => i.equipmentId));
+  const people = await userRepository.findNamesByIds(inspections.map((i) => i.assignedStaffId));
   return {
     equipmentName: new Map(equipment.map((item) => [String(item._id), item.name])),
     personName: new Map(people.map((person) => [String(person._id), person.name])),
@@ -48,11 +49,10 @@ async function loadNames(inspections: IInspection[]) {
 
 export async function runNotificationSweep(options: SweepOptions = {}): Promise<SweepResult> {
   const now = options.now ?? new Date();
-  const scope = options.organisationId ? { organisationId: options.organisationId } : {};
   const result: SweepResult = { reminders: 0, lateAlerts: 0 };
 
   // Only jobs that are still open can need a nudge
-  const open = await Inspection.find({ ...scope, status: { $in: ['pending', 'in_progress'] } });
+  const open = await inspectionRepository.findOpen(options.organisationId);
   if (open.length === 0) return result;
   const names = await loadNames(open);
 
@@ -71,7 +71,7 @@ export async function runNotificationSweep(options: SweepOptions = {}): Promise<
       });
       if (sent.delivered > 0) {
         inspection.reminderSentAt = now;
-        await inspection.save();
+        await inspectionRepository.save(inspection);
         result.reminders += 1;
       }
     }
@@ -87,7 +87,7 @@ export async function runNotificationSweep(options: SweepOptions = {}): Promise<
       });
       if (sent.delivered > 0) {
         inspection.overdueAlertSentAt = now;
-        await inspection.save();
+        await inspectionRepository.save(inspection);
         result.lateAlerts += 1;
       }
     }

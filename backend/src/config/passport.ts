@@ -4,7 +4,7 @@
 
 import passport from 'passport';
 import { Strategy as GoogleStrategy, Profile } from 'passport-google-oauth20';
-import User from '../models/User';
+import { userRepository } from '../repositories/userRepository';
 import logger from './logger';
 
 // Google sign-in is optional while developing: passport-google-oauth20 throws at
@@ -45,23 +45,23 @@ if (isGoogleAuthConfigured) passport.use(
         // Look for an existing user by Google ID first, then by email.
         // This handles the case where the same person registers via email first
         // and then later signs in with Google using the same address.
-        let existingUser = await User.findOne({ googleId: profile.id });
+        let existingUser = await userRepository.findByGoogleId(profile.id);
 
         if (!existingUser) {
-          existingUser = await User.findOne({ email });
+          existingUser = await userRepository.findByEmail(email);
         }
 
         if (existingUser) {
           // Link the Google ID to an existing email account if not already linked
           if (!existingUser.googleId) {
             existingUser.googleId = profile.id;
-            await existingUser.save();
+            await userRepository.save(existingUser);
           }
           return done(null, existingUser as unknown as Express.User);
         }
 
         // First-time Google sign-in — create a new account for this person
-        const newUser = await User.create({
+        const newUser = await userRepository.create({
           name: profile.displayName,
           email,
           googleId: profile.id,

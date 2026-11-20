@@ -3,12 +3,13 @@
 // Staff cannot sign themselves up as staff (that would let anyone claim a role).
 // Instead a manager creates the account and hands over the first password.
 
-import User, { IUser } from '../models/User';
+import type { IUser } from '../models/User';
+import { userRepository } from '../repositories/userRepository';
 import { registerUser, RegisterInput } from './authService';
 
 /** All staff accounts, alphabetical, for the staff page and for assigning inspections */
 export async function listStaff(organisationId: string): Promise<IUser[]> {
-  return User.find({ role: 'staff', organisationId }).sort({ name: 1 });
+  return userRepository.listStaff(organisationId);
 }
 
 /** Creates a staff account inside the manager's workspace. Throws 409 if the email is already registered. */

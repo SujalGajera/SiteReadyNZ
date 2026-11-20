@@ -1,4 +1,4 @@
-import User from '../models/User';
+import { userRepository } from '../repositories/userRepository';
 import { getPublicKey, runChecks, sendNotification, subscribe, unsubscribe } from '../controllers/pushController';
 import * as pushService from '../services/pushService';
 import { runNotificationSweep } from '../services/notificationService';
@@ -11,11 +11,11 @@ jest.mock('../config/vapid', () => ({
   },
   publicVapidKey: 'public-key-for-tests',
 }));
-jest.mock('../models/User', () => ({ __esModule: true, default: { findOne: jest.fn() } }));
+jest.mock('../repositories/userRepository', () => ({ userRepository: { findInOrganisation: jest.fn() } }));
 jest.mock('../services/pushService');
 jest.mock('../services/notificationService');
 
-const userModel = User as unknown as { findOne: jest.Mock };
+const users = userRepository as jest.Mocked<typeof userRepository>;
 const service = pushService as jest.Mocked<typeof pushService>;
 
 beforeEach(() => {
@@ -69,14 +69,14 @@ describe('sendNotification', () => {
   const body = { targetUserId: 'staff-1', title: 'Check due', body: 'AED, hall', url: '/inspections' };
 
   it('only finds the person inside the manager\'s own workspace', async () => {
-    userModel.findOne.mockResolvedValue({ _id: 'staff-1' });
+    users.findInOrganisation.mockResolvedValue({ _id: 'staff-1' } as never);
     service.sendPushToUser.mockResolvedValue({ devices: 1, delivered: 1, removed: 0, failed: 0 });
     await sendNotification(fakeRequest({ user: MANAGER, body }), fakeResponse(), fakeNext());
-    expect(userModel.findOne).toHaveBeenCalledWith({ _id: 'staff-1', organisationId: 'org-1' });
+    expect(users.findInOrganisation).toHaveBeenCalledWith('staff-1', 'org-1');
   });
 
   it('answers 404 for someone in another business, and sends nothing', async () => {
-    userModel.findOne.mockResolvedValue(null);
+    users.findInOrganisation.mockResolvedValue(null);
     const res = fakeResponse();
     await sendNotification(fakeRequest({ user: MANAGER, body }), res, fakeNext());
     expect(res.status).toHaveBeenCalledWith(404);
@@ -88,7 +88,7 @@ describe('sendNotification', () => {
     [{ devices: 1, delivered: 1, removed: 0, failed: 0 }, /Notification sent/],
     [{ devices: 1, delivered: 0, removed: 0, failed: 1 }, /could not be delivered/],
   ])('describes the outcome honestly: %j', async (result, message) => {
-    userModel.findOne.mockResolvedValue({ _id: 'staff-1' });
+    users.findInOrganisation.mockResolvedValue({ _id: 'staff-1' } as never);
     service.sendPushToUser.mockResolvedValue(result);
     const res = fakeResponse();
     await sendNotification(fakeRequest({ user: MANAGER, body }), res, fakeNext());

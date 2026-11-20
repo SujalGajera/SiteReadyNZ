@@ -754,7 +754,64 @@ Based on common compliance practice (NZS 4503 for extinguishers, AS/NZS 1851 for
 
 ## Phase 7 — Design Pattern Refactor
 
-*(Entries will be added here as Phase 7 files are created)*
+**Plain English:** a design pattern is a proven way to arrange code so one job lives in one place. This phase adds the Repository pattern to the backend (new work) and records the four patterns already in the app, so each one is easy to find and explain.
+
+### Pattern 1: Repository (backend) — NEW this phase
+
+**The problem it solves.** Before, five services, one controller and the Google sign-in setup each wrote their own database queries. The rule "only show someone their own business's data" (`organisationId`) was repeated about 20 times. Forgetting it once in a new query would leak one business's data to another. Business rules and database details were also mixed in the same functions, so a test had to fake the whole database to check a simple rule.
+
+**What changed.** A repository is the one place that knows how a kind of record is stored. Services now ask in plain terms ("the staff member with this id in this workspace") and keep only the rules.
+
+| New file | What it hides |
+|---|---|
+| `repositories/equipmentRepository.ts` | list, find, create, save, delete equipment; names for notifications |
+| `repositories/inspectionRepository.ts` | list for a workspace or a person, find, open jobs for the sweep, create with details filled in, save |
+| `repositories/userRepository.ts` | find by id, email (with or without the password hash), Google id, workspace; list staff; names; create; save |
+| `repositories/pushSubscriptionRepository.ts` | a person's devices, add or refresh, remove, shared-phone cleanup |
+
+Each file has an `interface` (the list of things it can do) and one implementation that uses Mongoose. A service depends on the interface, so the storage could be swapped without touching any rule.
+
+**Files changed to use them:** `equipmentService`, `inspectionService`, `authService`, `staffService`, `pushService`, `notificationService`, `controllers/pushController`, `config/passport`. After this, **no file outside `repositories/` and `models/` imports a Mongoose model** (checked with a search).
+
+**Behaviour is unchanged.** Every query has the same filters as before; only its location moved. One detail: when an inspection is submitted, the equipment id is now passed to the repository as text instead of a raw id. Mongoose converts both the same way, and the smoke run confirms the equipment still goes from "check overdue" to "ok".
+
+**Honest limit.** Repositories still hand back Mongoose documents, not plain objects. That is a deliberate shortcut: services change a document and call `save()`, which is also what lets the equipment's pre-save hook recalculate the status. A stricter version would map to plain objects.
+
+**Tests.**
+- Service tests now use **fake repositories**, so they check rules only.
+- New `tests/repositories.test.ts` (23 tests) checks the exact query each repository runs, including that every lookup is limited to the workspace.
+- Backend total: **197 tests, 17 suites, all pass.**
+- **Break-it-on-purpose check** (8 deliberate breaks, e.g. removing the workspace filter from the staff lookup, letting the sweep pick completed jobs, no longer hiding the shared phone's old owner): **all 8 caught.**
+- **Real-database checks after the refactor:** 27 push API checks, the browser smoke run (sign-in, submit a checklist, equipment goes from "check overdue" to "ok", sign-out) and the real-Chrome push run (real delivery through Google's push service) all pass.
+- Not re-tested against Google: Google sign-in uses the user repository too (`config/passport.ts`). The change there is a straight swap of the same calls and the server starts normally, but it needs your Google keys to prove it live.
+
+### Pattern 2: Context/Provider (frontend) — already in place, now documented
+
+**The problem.** Many screens need to know who is signed in, whether the phone is online, and what is waiting to upload. Passing those down through every component would be messy.
+
+**Where.** `context/AuthContext.tsx` (the signed-in user), `context/SyncContext.tsx` (the upload queue and its actions), `context/OfflineContext.tsx` (online or offline). Any component reads them with a hook (`useAuth`, `useSync`). Comments at the top of each file name the pattern.
+
+### Pattern 3: Strategy (both sides) — already in place, now documented
+
+**The problem.** The rule that decides "ok / due soon / overdue / expired" could be buried in `if` statements spread across the app, which would make it hard to change or test.
+
+**Where.** `backend/src/utils/statusCalculator.ts` and `frontend/src/utils/statusCalculator.ts`. The rule (`standardStatusStrategy`) is a plain function that receives two numbers, days until expiry and days until the next routine check, and returns a status. The check interval depends on the equipment type (30 days for extinguishers, first aid kits and AEDs; 90 days for signs and other), and is worked out before the rule runs. A different rule, such as a 60-day warning window, is just another function passed in, and tests can pass a fake one. The same rule runs on the server and on the phone, so cached data shows today's status while offline.
+
+### Pattern 4: Observer (frontend) — already in place, now documented
+
+**The problem.** The code that uploads finished checklists runs in the page and also in the service worker, and does not know what screens exist. Screens still need to react when an upload starts or ends.
+
+**Where.** `services/syncEvents.ts`. The uploader announces "outbox changed" and "upload finished"; the task list, the sync context and the toast message subscribe. Neither side knows about the other.
+
+### Also noted: Singleton (frontend)
+`services/api.ts` creates one configured HTTP client used by the whole app, so the base URL and cookie settings live in exactly one place.
+
+### Note on the debug screenshot
+
+The Phase 6 screenshot shows the breakpoints on lines 108 and 129 of `inspectionService.ts`. This phase moved those two lines to 102 and 123 (the file now imports repositories and no longer holds database calls), so `docs/DEBUGGING.md` was updated to the new numbers. The screenshot is still a true picture of the debugger, taken on the version before the refactor.
+
+### Done check
+Each pattern has a context explanation above and a comment at the top of its file. `npx tsc --noEmit` and `npx jest` pass in the backend; nothing in the frontend changed in this phase, so its 258 tests and build are unaffected.
 
 ---
 
