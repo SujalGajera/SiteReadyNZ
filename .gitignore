@@ -18,3 +18,5 @@ logs/
 Thumbs.db
 *.log
 coverage/
+# Temporary file Vite leaves behind while it loads its config
+vite.config.ts.timestamp-*.mjs

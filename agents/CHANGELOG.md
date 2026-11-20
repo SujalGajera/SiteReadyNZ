@@ -817,7 +817,39 @@ Each pattern has a context explanation above and a comment at the top of its fil
 
 ## Phase 8 — Final Polish & Report
 
-*(Entries will be added here as Phase 8 is completed)*
+**Status: in progress.** The code side is finished. What is left needs Sujal (screenshots, report, GitHub, ZIP).
+
+### Checks done against the code (not from memory)
+
+**Security checklist (all 10 items verified in the code):**
+- bcrypt cost factor 12 (`authService.ts`).
+- JWT secret is 96 characters and is not a placeholder; token lifetime defaults to 7 days (`jwtHelper.ts`); the app refuses to start signing without a secret.
+- Login token is an httpOnly, SameSite=Lax cookie, secure in production (`authCookie.ts`).
+- Google OAuth `state` is random, kept in a short-lived cookie, compared in constant time and used once (`middleware/googleOAuth.ts`).
+- Every `/api` router requires a login; staff, equipment-write, inspection-assign and push-send routes also require the manager role.
+- No `$where` or string-built queries anywhere; all queries go through Mongoose (and now only through the repositories).
+- The VAPID private key appears 0 times in `frontend/src`, 0 times in `frontend/dist` and 0 times in the whole git history.
+- CORS allows one origin (`CLIENT_URL`), not `*`.
+- `backend/.env` is ignored by git; only the two `.env.example` files are tracked.
+
+**Code-quality scan** (`any` types, `console.log`, TODO or FIXME, inline `style`): clean, apart from one unused ShadCN file (see below).
+
+### Cleanup for the hand-in
+- **Removed `frontend/_pending/`** (31 files, 3,046 lines). These were the first session's unfinished frontend files, moved aside in Phase 1 and replaced by the real screens. Nothing referenced them. They remain in git history if ever needed. This follows rule 3 (no dead code).
+- **Removed `frontend/src/components/ui/progress.tsx`** and its dependency `@radix-ui/react-progress`. Nothing used the component, and it was the only inline `style` in the app (rule 10).
+- `npm run build` and all 258 frontend tests still pass after the removal. npm also re-formatted `package.json` and `package-lock.json` (spacing only).
+
+### Documents added
+- **[docs/SCREENSHOTS.md]** Step-by-step list of the 12 planned screenshots from the design document, plus 10 more the rubric asks for (browser cache, Google OAuth setup, error messages, logs, Postman error codes). Each has a file name and exact steps. The "Check overdue" example needs Postman because the form has no "last inspected" box.
+
+### Still open (needs Sujal)
+- Capture the screenshots in `docs/SCREENSHOTS.md` (only `debug-01-watchers.png` exists).
+- One real Google sign-in to prove OAuth live (keys are set; never tested against Google).
+- The final report, written in Sujal's own words (the assignment's AI-use rules require the explanations and reflection to be his own work).
+- Design-phase report: UML class and sequence diagrams, Figma wireframes, persona and storyboard.
+- A GitHub repository (the project has no remote yet) and its URL.
+- The ZIP named `<StudentID>-<Name>.zip` (needs the student ID).
+- Optional bonus: database replication in the cloud (nothing set up).
 
 ---
 

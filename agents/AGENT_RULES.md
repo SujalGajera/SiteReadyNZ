@@ -221,23 +221,23 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 
 ## 🔒 Security Checklist (20 marks — cannot lose points here)
 
-- [ ] Passwords hashed with bcrypt (salt rounds ≥ 12)
-- [ ] JWT signed with strong secret, expires in 7d
-- [ ] JWT not accessible to JavaScript (httpOnly cookie preferred)
-- [ ] Google OAuth 2.0 state parameter validated (CSRF protection)
-- [ ] All API routes (except /auth) require valid JWT
-- [ ] Role guard middleware: manager-only routes reject staff JWT
-- [ ] MongoDB queries use parameterised values only (Mongoose handles this — do not use `$where` with user input)
-- [ ] VAPID private key in `.env` only, never in frontend
-- [ ] CORS configured for specific origin (not `*`) in production
-- [ ] `.env` in `.gitignore`
+- [x] Passwords hashed with bcrypt (salt rounds ≥ 12)
+- [x] JWT signed with strong secret, expires in 7d
+- [x] JWT not accessible to JavaScript (httpOnly cookie preferred)
+- [x] Google OAuth 2.0 state parameter validated (CSRF protection)
+- [x] All API routes (except /auth) require valid JWT
+- [x] Role guard middleware: manager-only routes reject staff JWT
+- [x] MongoDB queries use parameterised values only (Mongoose handles this — do not use `$where` with user input)
+- [x] VAPID private key in `.env` only, never in frontend
+- [x] CORS configured for specific origin (not `*`) in production
+- [x] `.env` in `.gitignore`
 
 ---
 
 ## 🧪 Testing Checklist (10 marks)
 
-- [ ] At least 5 frontend unit tests (meaningful values, not just "it renders")
-- [ ] At least 5 backend unit tests (controller logic or service logic)
+- [x] At least 5 frontend unit tests (meaningful values, not just "it renders")
+- [x] At least 5 backend unit tests (controller logic or service logic)
 - [ ] All Postman requests documented with screenshots
   - POST /auth/register → 201
   - POST /auth/login → 200 with JWT
