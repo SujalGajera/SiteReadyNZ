@@ -18,5 +18,9 @@ logs/
 Thumbs.db
 *.log
 coverage/
+# Folders the Postman desktop app creates at the project root. The leading slash anchors them to the root,
+# so backend/src/postman (our collections) is NOT ignored.
+/.postman/
+/postman/
 # Temporary file Vite leaves behind while it loads its config
 vite.config.ts.timestamp-*.mjs
