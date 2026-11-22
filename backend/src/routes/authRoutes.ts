@@ -20,7 +20,9 @@ const credentialsRateLimit = rateLimit({
 });
 
 // bcrypt only reads the first 72 bytes of a password, so longer ones are rejected
+// A value that is not plain text (an array or an object) is refused before any other rule sees it
 const passwordRules = body('password')
+  .isString().withMessage('This field is required and must be plain text').bail()
   .isLength({ min: 8, max: 72 })
   .withMessage('Password must be between 8 and 72 characters');
 
@@ -29,8 +31,8 @@ authRouter.post(
   '/register',
   credentialsRateLimit,
   [
-    body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 80 }).withMessage('Name is too long'),
-    body('email').trim().isEmail().withMessage('A valid email address is required'),
+    body('name').isString().withMessage('This field is required and must be plain text').bail().trim().notEmpty().withMessage('Name is required').isLength({ max: 80 }).withMessage('Name is too long'),
+    body('email').isString().withMessage('This field is required and must be plain text').bail().trim().isEmail().withMessage('A valid email address is required'),
     passwordRules,
   ],
   register
@@ -40,8 +42,8 @@ authRouter.post(
   '/login',
   credentialsRateLimit,
   [
-    body('email').trim().isEmail().withMessage('A valid email address is required'),
-    body('password').notEmpty().withMessage('Password is required'),
+    body('email').isString().withMessage('This field is required and must be plain text').bail().trim().isEmail().withMessage('A valid email address is required'),
+    body('password').isString().withMessage('This field is required and must be plain text').bail().notEmpty().withMessage('Password is required'),
   ],
   login
 );

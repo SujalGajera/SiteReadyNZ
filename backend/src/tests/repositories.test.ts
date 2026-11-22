@@ -11,8 +11,8 @@ import { inspectionRepository } from '../repositories/inspectionRepository';
 import { userRepository } from '../repositories/userRepository';
 import { pushSubscriptionRepository } from '../repositories/pushSubscriptionRepository';
 
-jest.mock('../models/Equipment', () => ({ __esModule: true, default: { find: jest.fn(), findOne: jest.fn(), create: jest.fn() } }));
-jest.mock('../models/Inspection', () => ({ __esModule: true, default: { find: jest.fn(), findOne: jest.fn(), create: jest.fn() } }));
+jest.mock('../models/Equipment', () => ({ __esModule: true, default: { find: jest.fn(), findOne: jest.fn(), create: jest.fn(), syncIndexes: jest.fn() } }));
+jest.mock('../models/Inspection', () => ({ __esModule: true, default: { find: jest.fn(), findOne: jest.fn(), create: jest.fn(), deleteMany: jest.fn() } }));
 jest.mock('../models/User', () => ({ __esModule: true, default: { find: jest.fn(), findOne: jest.fn(), findById: jest.fn(), create: jest.fn() } }));
 jest.mock('../models/PushSubscription', () => ({
   __esModule: true,
@@ -75,6 +75,12 @@ describe('equipmentRepository', () => {
     expect(equipmentModel.find).toHaveBeenCalledTimes(1);
     expect(equipmentModel.find).toHaveBeenCalledWith({ _id: { $in: ['a', 'b'] } });
     expect(q.select).toHaveBeenCalledWith('name');
+  });
+
+  it('makes the database indexes match the model', async () => {
+    equipmentModel.syncIndexes.mockResolvedValue([]);
+    await equipmentRepository.syncIndexes();
+    expect(equipmentModel.syncIndexes).toHaveBeenCalledTimes(1);
   });
 
   it('creates through the model, saves through save() (so the status is recalculated) and removes through deleteOne()', async () => {
@@ -140,6 +146,18 @@ describe('inspectionRepository', () => {
   it('saves through save()', async () => {
     const doc = { save: jest.fn().mockResolvedValue('saved') };
     await expect(inspectionRepository.save(doc as never)).resolves.toBe('saved');
+  });
+
+  it('deletes one inspection', async () => {
+    const doc = { deleteOne: jest.fn().mockResolvedValue(undefined) };
+    await inspectionRepository.remove(doc as never);
+    expect(doc.deleteOne).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes only the OPEN inspections of one item in one workspace (finished ones stay as history)', async () => {
+    inspectionModel.deleteMany.mockResolvedValue({ deletedCount: 2 });
+    await expect(inspectionRepository.removeOpenForEquipment('eq-1', 'org-1')).resolves.toBe(2);
+    expect(inspectionModel.deleteMany).toHaveBeenCalledWith({ organisationId: 'org-1', equipmentId: 'eq-1', status: { $in: ['pending', 'in_progress'] } });
   });
 });
 

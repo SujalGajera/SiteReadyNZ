@@ -53,6 +53,17 @@ export async function submitInspection(req: Request, res: Response, next: NextFu
   }
 }
 
+/** DELETE /api/inspections/:id — delete an inspection that has not been done yet (manager, 204) */
+export async function deleteInspection(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (rejectIfInvalid(req, res)) return;
+    await inspectionService.deleteInspection(req.params.id, callerOf(req));
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+}
+
 /** PATCH /api/inspections/:id/sync — mark a finished inspection as uploaded (200) */
 export async function syncInspection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

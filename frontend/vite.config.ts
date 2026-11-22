@@ -16,6 +16,8 @@ export default defineConfig({
     VitePWA({
       // Automatically updates the service worker when new content is available
       registerType: 'autoUpdate',
+      // The page registers the worker itself, in src/sw/registerServiceWorker.ts, so the plugin must not add a second registration
+      injectRegister: false,
       includeAssets: ['icons/*.png', 'brand/*.png', 'favicon.png'],
       // We write our own service worker (src/sw/sw.ts) because we need Background Sync for the outbox
       strategies: 'injectManifest',

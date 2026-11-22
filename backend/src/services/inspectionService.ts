@@ -133,6 +133,17 @@ export async function submitInspection(input: SubmitInput, caller: Caller): Prom
   return saved;
 }
 
+/**
+ * A manager deletes an inspection that has not been done yet (assigned by mistake, or no longer needed).
+ * A completed one is a record of work that happened, so it is kept (409).
+ */
+export async function deleteInspection(id: string, caller: Caller): Promise<void> {
+  const inspection = await inspectionRepository.findInOrganisation(id, caller.orgId);
+  if (!inspection) throw httpError(404, 'Inspection not found.');
+  if (inspection.status === 'completed') throw httpError(409, 'A completed inspection is kept as a record and cannot be deleted.');
+  await inspectionRepository.remove(inspection);
+}
+
 /** Marks a finished inspection as uploaded. Used by Background Sync once its upload succeeds. */
 export async function markSynced(id: string, caller: Caller): Promise<IInspection> {
   const inspection = await inspectionRepository.findInOrganisation(id, caller.orgId);

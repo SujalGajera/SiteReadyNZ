@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as equipmentApi from '@/services/equipmentApi'
 import { getErrorMessage } from '@/services/api'
+import { useIsMounted } from '@/hooks/useIsMounted'
 import type { Equipment, EquipmentFormValues } from '@/types'
 
 /**
@@ -11,18 +12,20 @@ export function useEquipment() {
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const isMounted = useIsMounted()
 
   const reload = useCallback(async () => {
     setIsLoading(true)
     setLoadError(null)
     try {
-      setEquipment(await equipmentApi.fetchEquipment())
+      const loaded = await equipmentApi.fetchEquipment()
+      if (isMounted()) setEquipment(loaded)
     } catch (error) {
-      setLoadError(getErrorMessage(error, 'Could not load the equipment list.'))
+      if (isMounted()) setLoadError(getErrorMessage(error, 'Could not load the equipment list.'))
     } finally {
-      setIsLoading(false)
+      if (isMounted()) setIsLoading(false)
     }
-  }, [])
+  }, [isMounted])
 
   useEffect(() => {
     void reload()

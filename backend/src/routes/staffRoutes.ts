@@ -16,9 +16,9 @@ staffRouter.get('/', getStaff);
 staffRouter.post(
   '/',
   [
-    body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 80 }).withMessage('Name is too long'),
-    body('email').trim().isEmail().withMessage('A valid email address is required'),
-    body('password').isLength({ min: 8, max: 72 }).withMessage('Password must be between 8 and 72 characters'),
+    body('name').isString().withMessage('This field is required and must be plain text').bail().trim().notEmpty().withMessage('Name is required').isLength({ max: 80 }).withMessage('Name is too long'),
+    body('email').isString().withMessage('This field is required and must be plain text').bail().trim().isEmail().withMessage('A valid email address is required'),
+    body('password').isString().withMessage('This field is required and must be plain text').bail().isLength({ min: 8, max: 72 }).withMessage('Password must be between 8 and 72 characters'),
   ],
   addStaff
 );

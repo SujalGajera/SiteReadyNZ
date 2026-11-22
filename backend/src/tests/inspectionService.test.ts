@@ -1,11 +1,11 @@
 import { inspectionRepository } from '../repositories/inspectionRepository';
 import { equipmentRepository } from '../repositories/equipmentRepository';
 import { userRepository } from '../repositories/userRepository';
-import { assignInspection, listAssignedTo, markSynced, submitInspection, type Caller } from '../services/inspectionService';
+import { assignInspection, deleteInspection, listAssignedTo, markSynced, submitInspection, type Caller } from '../services/inspectionService';
 
 // The service is tested against FAKE repositories: these tests are about the rules, not about MongoDB.
 jest.mock('../repositories/inspectionRepository', () => ({
-  inspectionRepository: { listByOrganisation: jest.fn(), listForStaff: jest.fn(), findInOrganisation: jest.fn(), createAndPopulate: jest.fn(), save: jest.fn() },
+  inspectionRepository: { listByOrganisation: jest.fn(), listForStaff: jest.fn(), findInOrganisation: jest.fn(), createAndPopulate: jest.fn(), save: jest.fn(), remove: jest.fn() },
 }));
 jest.mock('../repositories/equipmentRepository', () => ({ equipmentRepository: { findInOrganisation: jest.fn(), save: jest.fn() } }));
 jest.mock('../repositories/userRepository', () => ({ userRepository: { findStaffInOrganisation: jest.fn() } }));
@@ -179,6 +179,28 @@ describe('listAssignedTo', () => {
     inspections.listForStaff.mockResolvedValue([]);
     await listAssignedTo('staff-1', manager);
     expect(inspections.listForStaff).toHaveBeenCalledWith('org-1', 'staff-1');
+  });
+});
+
+describe('deleteInspection', () => {
+  it('deletes an open inspection found in the manager\'s workspace', async () => {
+    const open = openInspection();
+    inspections.findInOrganisation.mockResolvedValue(open as never);
+    await deleteInspection('insp-1', manager);
+    expect(inspections.findInOrganisation).toHaveBeenCalledWith('insp-1', 'org-1');
+    expect(inspections.remove).toHaveBeenCalledWith(open);
+  });
+
+  it('keeps a completed inspection as a record (409) and deletes nothing', async () => {
+    inspections.findInOrganisation.mockResolvedValue(openInspection({ status: 'completed' }) as never);
+    await expect(deleteInspection('insp-1', manager)).rejects.toMatchObject({ statusCode: 409 });
+    expect(inspections.remove).not.toHaveBeenCalled();
+  });
+
+  it('answers 404 for an inspection in another workspace, and deletes nothing', async () => {
+    inspections.findInOrganisation.mockResolvedValue(null);
+    await expect(deleteInspection('insp-1', manager)).rejects.toMatchObject({ statusCode: 404 });
+    expect(inspections.remove).not.toHaveBeenCalled();
   });
 });
 

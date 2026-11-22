@@ -1,11 +1,11 @@
 import bcrypt from 'bcryptjs';
 import { userRepository } from '../repositories/userRepository';
-import { authenticateUser, getOrganisationId, getUserById, registerUser } from '../services/authService';
+import { authenticateUser, findOrCreateGoogleUser, getOrganisationId, getUserById, registerUser } from '../services/authService';
 import type { IUser } from '../models/User';
 
 // The service is tested against a FAKE repository: these tests are about the rules, not about MongoDB.
 jest.mock('../repositories/userRepository', () => ({
-  userRepository: { findByEmail: jest.fn(), findByEmailWithPassword: jest.fn(), findById: jest.fn(), create: jest.fn() },
+  userRepository: { findByEmail: jest.fn(), findByEmailWithPassword: jest.fn(), findById: jest.fn(), findByGoogleId: jest.fn(), create: jest.fn(), save: jest.fn() },
 }));
 
 const repo = userRepository as jest.Mocked<typeof userRepository>;
@@ -75,6 +75,60 @@ describe('authenticateUser', () => {
     await authenticateUser('  A@Example.com ', 'right');
     expect(repo.findByEmailWithPassword).toHaveBeenCalledWith('a@example.com');
     expect(repo.findByEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe('authenticateUser: unknown email', () => {
+  it('still does a real bcrypt comparison, so it is not noticeably faster than a wrong password', async () => {
+    repo.findByEmailWithPassword.mockResolvedValue(null);
+    const compare = jest.spyOn(bcrypt, 'compare');
+    await expect(authenticateUser('nobody@example.com', 'whatever-1')).rejects.toMatchObject({ statusCode: 401 });
+    expect(compare).toHaveBeenCalledTimes(1);
+    compare.mockRestore();
+  }, 15000);
+});
+
+describe('findOrCreateGoogleUser', () => {
+  const identity = { googleId: 'g-1', email: ' Tane@Example.com ', emailVerified: true, name: 'Tane Walker' };
+  beforeEach(() => {
+    repo.findByGoogleId.mockResolvedValue(null);
+    repo.findByEmail.mockResolvedValue(null);
+    repo.create.mockImplementation(async (data: object) => ({ ...data }) as never);
+    repo.save.mockImplementation(async (user) => user);
+  });
+
+  it('signs in a returning Google person by their Google id, whatever the email says', async () => {
+    const returning = { id: 'u1' };
+    repo.findByGoogleId.mockResolvedValue(returning as never);
+    await expect(findOrCreateGoogleUser({ ...identity, emailVerified: false })).resolves.toBe(returning);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('creates a new account with a lower-case email and no password', async () => {
+    await findOrCreateGoogleUser(identity);
+    expect(repo.create).toHaveBeenCalledWith({ name: 'Tane Walker', email: 'tane@example.com', googleId: 'g-1' });
+  });
+
+  it('links Google to an existing password account that uses the same verified email', async () => {
+    const existing = { id: 'u1', googleId: undefined as string | undefined };
+    repo.findByEmail.mockResolvedValue(existing as never);
+    await findOrCreateGoogleUser(identity);
+    expect(existing.googleId).toBe('g-1');
+    expect(repo.save).toHaveBeenCalledWith(existing);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses an email Google has NOT verified (403), so nobody can take over an account by claiming its email', async () => {
+    repo.findByEmail.mockResolvedValue({ id: 'u1' } as never);
+    await expect(findOrCreateGoogleUser({ ...identity, emailVerified: false })).rejects.toMatchObject({ statusCode: 403 });
+    expect(repo.save).not.toHaveBeenCalled();
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses to relink an email that already belongs to a different Google account (403)', async () => {
+    repo.findByEmail.mockResolvedValue({ id: 'u1', googleId: 'someone-else' } as never);
+    await expect(findOrCreateGoogleUser(identity)).rejects.toMatchObject({ statusCode: 403 });
+    expect(repo.save).not.toHaveBeenCalled();
   });
 });
 

@@ -18,6 +18,10 @@ export interface InspectionRepository {
   /** Saves a new inspection and returns it with equipment and staff details filled in */
   createAndPopulate(data: Record<string, unknown>): Promise<IInspection>;
   save(inspection: IInspection): Promise<IInspection>;
+  /** Deletes one inspection */
+  remove(inspection: IInspection): Promise<void>;
+  /** Deletes the still-open inspections of one piece of equipment (used when the equipment itself is deleted) */
+  removeOpenForEquipment(equipmentId: string, organisationId: string): Promise<number>;
 }
 
 export const inspectionRepository: InspectionRepository = {
@@ -53,5 +57,14 @@ export const inspectionRepository: InspectionRepository = {
 
   async save(inspection) {
     return inspection.save();
+  },
+
+  async remove(inspection) {
+    await inspection.deleteOne();
+  },
+
+  async removeOpenForEquipment(equipmentId, organisationId) {
+    const result = await Inspection.deleteMany({ organisationId, equipmentId, status: { $in: OPEN_STATUSES } });
+    return result.deletedCount ?? 0;
   },
 };

@@ -1,4 +1,5 @@
 import { equipmentRepository } from '../repositories/equipmentRepository';
+import { inspectionRepository } from '../repositories/inspectionRepository';
 import { createEquipment, deleteEquipment, getEquipment, listEquipment, updateEquipment } from '../services/equipmentService';
 
 // The service is tested against a FAKE repository: these tests are about the rules,
@@ -14,7 +15,10 @@ jest.mock('../repositories/equipmentRepository', () => ({
   },
 }));
 
+jest.mock('../repositories/inspectionRepository', () => ({ inspectionRepository: { removeOpenForEquipment: jest.fn() } }));
+
 const repo = equipmentRepository as jest.Mocked<typeof equipmentRepository>;
+const inspections = inspectionRepository as jest.Mocked<typeof inspectionRepository>;
 
 /** A stand-in for a Mongoose document that records what was set on it */
 function fakeDocument() {
@@ -100,6 +104,18 @@ describe('deleteEquipment', () => {
     await deleteEquipment('eq-1', 'org-1');
     expect(repo.findInOrganisation).toHaveBeenCalledWith('eq-1', 'org-1');
     expect(repo.remove).toHaveBeenCalledWith(doc);
+  });
+
+  it('also deletes the inspections of that item that were still waiting to be done, in the same workspace', async () => {
+    repo.findInOrganisation.mockResolvedValue(fakeDocument() as never);
+    await deleteEquipment('eq-1', 'org-1');
+    expect(inspections.removeOpenForEquipment).toHaveBeenCalledWith('eq-1', 'org-1');
+  });
+
+  it('does not touch any inspection when the item is not found', async () => {
+    repo.findInOrganisation.mockResolvedValue(null);
+    await expect(deleteEquipment('eq-9', 'org-1')).rejects.toMatchObject({ statusCode: 404 });
+    expect(inspections.removeOpenForEquipment).not.toHaveBeenCalled();
   });
 
   it('answers 404 for something that is not there, and deletes nothing', async () => {

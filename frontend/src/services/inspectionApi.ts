@@ -13,6 +13,11 @@ export async function fetchAllInspections(): Promise<Inspection[]> {
   return response.data
 }
 
+/** A manager deletes an inspection that has not been done yet. A completed one is kept (the server answers 409). */
+export async function deleteInspection(id: string): Promise<void> {
+  await api.delete(`/api/inspections/${id}`)
+}
+
 /** A manager gives a piece of equipment to a staff member for a day */
 export async function assignInspection(values: AssignInspectionValues): Promise<Inspection> {
   const response = await api.post<Inspection>('/api/inspections', values)

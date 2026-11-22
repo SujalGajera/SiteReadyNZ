@@ -9,6 +9,7 @@ import {
   getAllInspections,
   getAssignedInspections,
   createInspection,
+  deleteInspection,
   submitInspection,
   syncInspection,
 } from '../controllers/inspectionController';
@@ -54,6 +55,9 @@ inspectionRouter.post(
   ],
   submitInspection
 );
+
+// A manager deletes an inspection that has not been done yet
+inspectionRouter.delete('/:id', requireRole('manager'), param('id').isMongoId().withMessage('Invalid inspection id'), deleteInspection);
 
 // Marks a finished inspection as uploaded
 inspectionRouter.patch('/:id/sync', param('id').isMongoId().withMessage('Invalid inspection id'), syncInspection);

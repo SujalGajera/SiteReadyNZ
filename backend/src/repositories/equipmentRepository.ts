@@ -21,6 +21,8 @@ export interface EquipmentRepository {
   /** Saves through Mongoose `save()`, so the pre-save hook recalculates the status */
   save(equipment: IEquipment): Promise<IEquipment>;
   remove(equipment: IEquipment): Promise<void>;
+  /** Makes the database indexes match the model (run once at start-up) */
+  syncIndexes(): Promise<void>;
 }
 
 export const equipmentRepository: EquipmentRepository = {
@@ -50,5 +52,9 @@ export const equipmentRepository: EquipmentRepository = {
 
   async remove(equipment) {
     await equipment.deleteOne();
+  },
+
+  async syncIndexes() {
+    await Equipment.syncIndexes();
   },
 };

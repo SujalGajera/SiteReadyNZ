@@ -1,57 +1,12 @@
-import { motion } from 'motion/react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ContourBackdrop } from '@/components/brand/ContourBackdrop'
 import { AssignInspectionSheet } from '@/components/inspection/AssignInspectionSheet'
-import { describeDue } from '@/components/inspection/InspectionCard'
+import { DeleteInspectionDialog } from '@/components/inspection/DeleteInspectionDialog'
+import { ManagerInspectionLine } from '@/components/inspection/ManagerInspectionLine'
 import { useInspectionBoard } from '@/hooks/useInspectionBoard'
-import { cn } from '@/utils/cn'
-import { formatDate } from '@/utils/dateHelpers'
-import type { Inspection } from '@/types'
-
-function staffName(inspection: Inspection): string {
-  return typeof inspection.assignedStaffId === 'string' ? 'Unknown' : inspection.assignedStaffId.name
-}
-
-/** "5 pass, 1 fail, 1 flag" for a finished inspection */
-function summariseResults(inspection: Inspection): { pass: number; fail: number; flag: number } {
-  const count = (result: string) => inspection.items.filter((item) => item.result === result).length
-  return { pass: count('pass'), fail: count('fail'), flag: count('flag') }
-}
-
-function InspectionLine({ inspection }: { inspection: Inspection }) {
-  const isDone = inspection.status === 'completed'
-  const due = describeDue(inspection.scheduledDate)
-  const results = summariseResults(inspection)
-
-  return (
-    <motion.li layout="position" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-card px-4 py-3.5 shadow-sm">
-      <div className="min-w-0 flex-1 basis-60">
-        <p className="truncate font-semibold">{inspection.equipmentId.name}</p>
-        <p className="truncate text-sm text-muted-foreground">
-          {staffName(inspection)} &middot; {inspection.equipmentId.location}
-        </p>
-      </div>
-      {isDone ? (
-        <>
-          <p className="flex items-center gap-2 text-xs font-semibold tabular-nums">
-            <span className="rounded-full bg-ok-soft px-2.5 py-1 text-ok">{results.pass} pass</span>
-            {results.fail > 0 && <span className="rounded-full bg-danger-soft px-2.5 py-1 text-danger">{results.fail} fail</span>}
-            {results.flag > 0 && <span className="rounded-full bg-kowhai-soft px-2.5 py-1 text-warn">{results.flag} flag</span>}
-          </p>
-          <p className="w-32 text-right text-sm text-muted-foreground">{formatDate(inspection.completedAt)}</p>
-        </>
-      ) : (
-        <>
-          <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', due.tone)}>{due.text}</span>
-          <p className="w-32 text-right text-sm text-muted-foreground">{formatDate(inspection.scheduledDate)}</p>
-        </>
-      )}
-    </motion.li>
-  )
-}
 
 /** Manager's view: who has been given what, and what came back */
 export default function ManagerInspectionsPage() {
@@ -102,7 +57,7 @@ export default function ManagerInspectionsPage() {
               <h2 className="font-display text-xl font-semibold">Open ({open.length})</h2>
               <ul className="space-y-2.5">
                 {open.map((inspection) => (
-                  <InspectionLine key={inspection._id} inspection={inspection} />
+                  <ManagerInspectionLine key={inspection._id} inspection={inspection} onDelete={board.requestDelete} />
                 ))}
               </ul>
             </section>
@@ -112,7 +67,7 @@ export default function ManagerInspectionsPage() {
               <h2 className="font-display text-xl font-semibold">Completed ({done.length})</h2>
               <ul className="space-y-2.5">
                 {done.map((inspection) => (
-                  <InspectionLine key={inspection._id} inspection={inspection} />
+                  <ManagerInspectionLine key={inspection._id} inspection={inspection} onDelete={board.requestDelete} />
                 ))}
               </ul>
             </section>
@@ -121,6 +76,7 @@ export default function ManagerInspectionsPage() {
       )}
 
       <AssignInspectionSheet isOpen={board.isFormOpen} equipment={board.equipment} staff={board.staff} onSave={board.assign} onClose={board.closeForm} />
+      <DeleteInspectionDialog inspection={board.inspectionToDelete} isDeleting={board.isDeleting} onConfirm={() => void board.confirmDelete()} onCancel={board.cancelDelete} />
     </div>
   )
 }

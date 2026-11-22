@@ -4,7 +4,8 @@
 
 import passport from 'passport';
 import { Strategy as GoogleStrategy, Profile } from 'passport-google-oauth20';
-import { userRepository } from '../repositories/userRepository';
+import { findOrCreateGoogleUser } from '../services/authService';
+import type { AppError } from '../middleware/errorHandler';
 import logger from './logger';
 
 // Google sign-in is optional while developing: passport-google-oauth20 throws at
@@ -42,34 +43,23 @@ if (isGoogleAuthConfigured) passport.use(
           return done(new Error('No email returned from Google OAuth'));
         }
 
-        // Look for an existing user by Google ID first, then by email.
-        // This handles the case where the same person registers via email first
-        // and then later signs in with Google using the same address.
-        let existingUser = await userRepository.findByGoogleId(profile.id);
-
-        if (!existingUser) {
-          existingUser = await userRepository.findByEmail(email);
-        }
-
-        if (existingUser) {
-          // Link the Google ID to an existing email account if not already linked
-          if (!existingUser.googleId) {
-            existingUser.googleId = profile.id;
-            await userRepository.save(existingUser);
-          }
-          return done(null, existingUser as unknown as Express.User);
-        }
-
-        // First-time Google sign-in — create a new account for this person
-        const newUser = await userRepository.create({
-          name: profile.displayName,
-          email,
+        // Finding, linking or creating the account is a business rule, so it lives in authService
+        const user = await findOrCreateGoogleUser({
           googleId: profile.id,
-          // No passwordHash because this user will only ever sign in via Google
+          email,
+          // Google sends a real true/false; anything else counts as "not verified"
+          emailVerified: profile.emails?.[0]?.verified === true,
+          name: profile.displayName,
         });
-
-        return done(null, newUser as unknown as Express.User);
+        return done(null, user as unknown as Express.User);
       } catch (error) {
+        // A refusal (unverified email, address linked elsewhere) sends the person back to the login page
+        // with a message, instead of showing a raw error. Real faults still go to the error handler.
+        const statusCode = (error as AppError).statusCode;
+        if (statusCode !== undefined && statusCode < 500) {
+          logger.warn(`Google sign-in refused: ${(error as Error).message}`);
+          return done(null, false);
+        }
         return done(error);
       }
     }

@@ -1,5 +1,5 @@
 import { userRepository } from '../repositories/userRepository';
-import { createInspection, getAllInspections, getAssignedInspections, submitInspection, syncInspection } from '../controllers/inspectionController';
+import { createInspection, deleteInspection, getAllInspections, getAssignedInspections, submitInspection, syncInspection } from '../controllers/inspectionController';
 import { addStaff, getStaff } from '../controllers/staffController';
 import { createStaff, listStaff } from '../services/staffService';
 import * as inspectionService from '../services/inspectionService';
@@ -54,6 +54,23 @@ describe('inspection controller', () => {
     await submitInspection(fakeRequest({ user: STAFF, body }), res, fakeNext());
     expect(service.submitInspection).toHaveBeenCalledWith(body, { id: 'staff-1', role: 'staff', orgId: 'org-1' });
     expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('deletes an inspection and answers 204 with no body', async () => {
+    service.deleteInspection.mockResolvedValue();
+    const res = fakeResponse();
+    await deleteInspection(fakeRequest({ user: MANAGER, params: { id: 'insp-1' } }), res, fakeNext());
+    expect(service.deleteInspection).toHaveBeenCalledWith('insp-1', { id: 'manager-1', role: 'manager', orgId: 'org-1' });
+    expect(res.status).toHaveBeenCalledWith(204);
+    expect(res.json).not.toHaveBeenCalled();
+  });
+
+  it('passes the service\'s 409 (completed inspection) on to the error handler', async () => {
+    const conflict = Object.assign(new Error('kept as a record'), { statusCode: 409 });
+    service.deleteInspection.mockRejectedValue(conflict);
+    const next = fakeNext();
+    await deleteInspection(fakeRequest({ user: MANAGER, params: { id: 'insp-1' } }), fakeResponse(), next);
+    expect(next).toHaveBeenCalledWith(conflict);
   });
 
   it('marks an inspection as synced and answers 200', async () => {

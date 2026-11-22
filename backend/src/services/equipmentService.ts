@@ -5,6 +5,7 @@
 
 import type { IEquipment, EquipmentType } from '../models/Equipment';
 import { equipmentRepository } from '../repositories/equipmentRepository';
+import { inspectionRepository } from '../repositories/inspectionRepository';
 import { AppError } from '../middleware/errorHandler';
 
 /** The fields a client is allowed to send. `status`, `_id` and `organisationId` are deliberately missing. */
@@ -78,4 +79,7 @@ export async function deleteEquipment(id: string, organisationId: string): Promi
   const equipment = await equipmentRepository.findInOrganisation(id, organisationId);
   if (!equipment) throw httpError(404, 'Equipment not found.');
   await equipmentRepository.remove(equipment);
+  // Checks that were still waiting to be done for this item can never be done now, so they go too.
+  // Finished ones stay as history (they show as "Removed equipment").
+  await inspectionRepository.removeOpenForEquipment(id, organisationId);
 }

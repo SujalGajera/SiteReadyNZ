@@ -38,6 +38,14 @@ describe('requireAuthentication', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it('uses the Bearer header, not a leftover cookie, when both are sent (so a staff token is not overridden by an old manager cookie)', () => {
+    const cookieOwner = signToken('manager-1', 'manager', 'org-1');
+    const headerOwner = signToken('staff-1', 'staff', 'org-1');
+    const req = fakeRequest({ cookies: { [AUTH_COOKIE_NAME]: cookieOwner }, headers: { authorization: `Bearer ${headerOwner}` } });
+    requireAuthentication(req, fakeResponse(), fakeNext());
+    expect(req.user).toMatchObject({ id: 'staff-1', role: 'staff' });
+  });
+
   it('ignores an Authorization header that is not a Bearer token', () => {
     const res = fakeResponse();
     requireAuthentication(fakeRequest({ headers: { authorization: 'Basic dXNlcjpwYXNz' } }), res, fakeNext());

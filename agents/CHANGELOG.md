@@ -771,7 +771,7 @@ Based on common compliance practice (NZS 4503 for extinguishers, AS/NZS 1851 for
 
 Each file has an `interface` (the list of things it can do) and one implementation that uses Mongoose. A service depends on the interface, so the storage could be swapped without touching any rule.
 
-**Files changed to use them:** `equipmentService`, `inspectionService`, `authService`, `staffService`, `pushService`, `notificationService`, `controllers/pushController`, `config/passport`. After this, **no file outside `repositories/` and `models/` imports a Mongoose model** (checked with a search).
+**Files changed to use them:** `equipmentService`, `inspectionService`, `authService`, `staffService`, `pushService`, `notificationService`, `controllers/pushController`, `config/passport`. After this, no file inside `src/` outside `repositories/` and `models/` imports a Mongoose model (checked with a search of `src/`). **Correction found in the later audit:** `backend/server.ts` (outside `src/`) still imports the `Equipment` model to call `syncIndexes()` at start-up, so the search had missed one place.
 
 **Behaviour is unchanged.** Every query has the same filters as before; only its location moved. One detail: when an inspection is submitted, the equipment id is now passed to the repository as text instead of a raw id. Mongoose converts both the same way, and the smoke run confirms the equipment still goes from "check overdue" to "ok".
 
@@ -839,15 +839,51 @@ Each pattern has a context explanation above and a comment at the top of its fil
 - **Removed `frontend/src/components/ui/progress.tsx`** and its dependency `@radix-ui/react-progress`. Nothing used the component, and it was the only inline `style` in the app (rule 10).
 - `npm run build` and all 258 frontend tests still pass after the removal. npm also re-formatted `package.json` and `package-lock.json` (spacing only).
 
-### Documents added
-- **[docs/SCREENSHOTS.md]** Step-by-step list of the 12 planned screenshots from the design document, plus 10 more the rubric asks for (browser cache, Google OAuth setup, error messages, logs, Postman error codes). Each has a file name and exact steps. The "Check overdue" example needs Postman because the form has no "last inspected" box.
+### Bug-fix pass after the audit
+An audit of the whole project (sent live attack requests to the running API, ran coverage, read every route) found the problems below. All are fixed. Each fix has a test, and each test was proved by breaking the fix on purpose and watching a test fail.
+
+| Problem found | What was wrong | Fix | Where |
+|---|---|---|---|
+| **Inspections had no Delete** | The rubric wants full create/read/update/delete on each feature, and inspections could not be deleted. | `DELETE /api/inspections/:id` (manager only, 204). Only open checks can be deleted; a finished one answers 409 and is kept as a record. A confirm dialog and a Delete button were added. | `inspectionService.deleteInspection`, `inspectionRoutes.ts`, `DeleteInspectionDialog.tsx`, `ManagerInspectionLine.tsx` |
+| **Deleting equipment broke the Inspections page** | Its inspections were left pointing at nothing, and the page read `equipmentId.name` of nothing. | Deleting equipment also deletes its **open** checks. Finished ones stay, and show "Removed equipment". | `equipmentService.deleteEquipment`, `Inspection.ts` (`REMOVED_EQUIPMENT`) |
+| **Wrong-type input caused a 500 or bad data** | An array as the login email, or an object as the password, gave a 500. An object as an equipment name was saved as the text "[object Object]". | Every text field is checked to be plain text before any other rule. These now answer 400. | `authRoutes.ts`, `staffRoutes.ts`, `equipmentRoutes.ts`, `pushRoutes.ts` |
+| **Login timing leaked which emails exist** | An unknown email skipped the slow password check, so it answered faster than a wrong password. | The same bcrypt check runs against a throwaway hash. Measured live: both answer in about 435 ms. | `authService.authenticateUser` |
+| **Google could link to an unverified email** | Signing in with Google linked to an existing account by email without checking Google had verified it. | Unverified emails are refused (403, then back to the login page). The rule moved out of `passport.ts` into a tested service function. | `authService.findOrCreateGoogleUser`, `config/passport.ts` |
+| **JWT algorithm not pinned** | A token could name its own algorithm. | Only HS256 is accepted. | `jwtHelper.ts` |
+| **Server start-up could fail silently** | A failure while syncing indexes was an unhandled rejection with no message. `server.ts` also imported a model directly, which contradicted the Phase 7 note. | The index sync moved into the equipment repository and start-up now logs a clear error and exits. | `server.ts`, `equipmentRepository.syncIndexes` |
+| **Screens updated after you left them** | Four data hooks set state after the page was gone. | A small `useIsMounted` hook guards them. | `useIsMounted.ts`, `useEquipment`, `useStaff`, `useMyInspections`, `useInspectionBoard` |
+| **A leftover cookie could override the Bearer token** | The server read the cookie before the `Authorization` header, so in Postman a staff request could silently run as the manager. | The header wins when both are sent. The app itself only uses the cookie, so the browser is unaffected. | `authMiddleware.extractToken` |
+| **Service worker registration was hidden** | It was generated by a plugin, so no file in `src` showed it (the rubric names "service worker registration" as a config item). | A small explicit file registers the worker, and the plugin's own injection is switched off so it cannot register twice. Checked in Chrome: exactly one worker, active, scope `/`. | `src/sw/registerServiceWorker.ts`, `main.tsx`, `vite.config.ts` |
+
+Also removed: the unused `ui/progress.tsx` and the dead `frontend/_pending/` folder (see above).
+
+### Verification
+- **Backend:** 244 tests in 19 suites pass, 96.6% of lines covered, `tsc` clean. Added `supertest` so real HTTP requests go through the real Express app (`http.test.ts`): headers, login, roles, validators, NoSQL-injection attempts, status codes.
+- **Frontend:** 279 tests in 22 suites pass (up from 258), 56.6% of lines covered (up from 48.5%).
+- **Break-it-on-purpose:** 10 deliberate breaks of the new fixes, all caught. This also caught a test I had written that never ran, because of a silent editing mistake of mine (see "Process notes").
+- **Browser (real Chrome):** 14 checks pass for the new work: one active service worker, the Delete button and its confirm dialog, "Keep it" deletes nothing, the check disappears from the page and the server, finished history shows "Removed equipment" without a crash, and the app still opens offline with the amber banner.
+- **Older regression scripts:** 27 push API checks pass. The 9-check smoke run passes.
+- **Postman:** the new collection ran end to end with Newman, twice in a row, with 55 requests, 163 checks and 0 failures. The demo-data collection ran with 11 requests, 28 checks and 0 failures.
+
+### Known issue: one push test is intermittent (not a regression)
+The real-Chrome push script (`docs/test-scripts/push-e2e.mjs`) has 16 checks. One of them, "the manager receives the late-check alert", passes only some of the time. The server reports the alert as delivered and the saved device record is correct. My investigation: the same script on the **last committed code, before any of today's changes**, also fails it, more often than not (2 passes in 5 completed runs there; a sixth run was lost to the sign-in limit). On the current code a controlled batch gave 2 passes in 4 runs. Separate small probes of the same behaviour, a real sweep to a freshly opened manager browser, deliver in 20 ms to 8 s every time. A 30-second pause before the sweep did not help. I could not find the cause. The likely area is how Google's push service wakes the newest of several simultaneously opened automated Chrome profiles, but that is a guess and is not proven. The push feature itself works: staff messages, reminders, the direct manager message and the sweep were all received in the probes. Do not demo the "run the late-check alert" step with several new Chrome windows opened at once. Open the manager window first, turn reminders on, wait until the card says "Reminders are on", then send.
+
+### Process notes (what went wrong while doing this, for honesty)
+- A shell helper I wrote turned a one-item edit list into a find-and-replace of "/" with "*" on two source files. The compiler caught it at once and both files were restored from git and re-edited. Three other one-item edits silently changed nothing (one was a missing test), which the break-it-on-purpose run exposed. The fixes are all verified present now.
+- Several test accounts from my own earlier test scripts were left in the database (63 in one sweep). They were removed with a script that matches only their `@example.com` naming patterns. The five real accounts, 5 equipment items and 3 inspections were never touched.
+- The audit report I wrote earlier contained 5 wrong line numbers and a wrong Postman request count. A corrected version replaced it.
+
+### Documents and tools added
+- **[docs/TECHNIQUES.md]** What the project uses, where and why, in one or two sentences each: methodology, 11 design patterns, SOLID, backend, API, MongoDB tools (mongosh, Compass), PWA, service worker, Cache Storage, IndexedDB, push, testing, debugging, DevTools. It says plainly where something is **not** used: replication, sharding, Factory Method.
+- **[docs/SCREENSHOTS.md]** Rewritten as a walkthrough from the project folder to the end, in 13 parts (0 to 12) and about 90 numbered screenshots, with the exact screen, button name and what must be visible. Includes the `mongosh` commands (each tested read-only against the real database).
+- **[backend/src/postman/]** The full collection (55 requests), an environment file, a demo-data collection for filling your own account before screenshots, and a README. It replaces the older, smaller collection in `docs/postman`. Postman variables, dates and tokens are all handled by scripts, so the collection can be run straight away.
 
 ### Still open (needs Sujal)
-- Capture the screenshots in `docs/SCREENSHOTS.md` (only `debug-01-watchers.png` exists).
-- One real Google sign-in to prove OAuth live (keys are set; never tested against Google).
-- The final report, written in Sujal's own words (the assignment's AI-use rules require the explanations and reflection to be his own work).
+- Take the screenshots in `docs/SCREENSHOTS.md` (only `debug-01-watchers.png` exists).
+- One real Google sign-in to prove OAuth live. Keys are set, but it has never been tried against Google, and the account-linking rule changed in this pass.
+- The final report, in Sujal's own words (the assignment's AI-use rules require the explanations and reflection to be his own work).
 - Design-phase report: UML class and sequence diagrams, Figma wireframes, persona and storyboard.
-- A GitHub repository (the project has no remote yet) and its URL.
+- Make the GitHub repository public, or add the marker as a collaborator.
 - The ZIP named `<StudentID>-<Name>.zip` (needs the student ID).
 - Optional bonus: database replication in the cloud (nothing set up).
 

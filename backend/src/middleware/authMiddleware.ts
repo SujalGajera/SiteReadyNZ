@@ -19,16 +19,18 @@ declare global {
 /**
  * Finds the JWT on the request. The browser app sends it in the httpOnly cookie;
  * Postman and other API clients can send `Authorization: Bearer <token>` instead.
+ *
+ * If both are present the header wins: a caller who set it on purpose means "act as this identity",
+ * while a cookie is sent automatically and may be left over from an earlier sign-in (for example
+ * a Postman cookie jar after switching from a manager to a staff account).
  */
 function extractToken(req: Request): string | undefined {
-  const cookieToken = req.cookies?.[AUTH_COOKIE_NAME] as string | undefined;
-  if (cookieToken) return cookieToken;
-
   const authorizationHeader = req.headers.authorization;
   if (authorizationHeader?.startsWith('Bearer ')) {
     return authorizationHeader.slice('Bearer '.length);
   }
-  return undefined;
+
+  return req.cookies?.[AUTH_COOKIE_NAME] as string | undefined;
 }
 
 export function requireAuthentication(

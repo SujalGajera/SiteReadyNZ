@@ -71,12 +71,17 @@ const inspectionSchema = new Schema<IInspection>(
 // Answers to "what is on my list" are always looked up by staff member and status
 inspectionSchema.index({ organisationId: 1, assignedStaffId: 1, status: 1 });
 
+// What a finished inspection shows when its equipment has since been deleted (the lookup finds nothing)
+const REMOVED_EQUIPMENT = { name: 'Removed equipment', type: 'other', location: 'No longer in the equipment list' };
+
 // A task that is still open after its due day is shown as overdue. Like equipment status this is
 // worked out when the answer is sent, so it can never be stale.
 inspectionSchema.set('toJSON', {
   transform(_doc, ret) {
     const plainInspection = ret as unknown as Record<string, unknown>;
     delete plainInspection.__v;
+    // Without this, the apps would crash on "null.name" for history that outlives its equipment
+    if (plainInspection.equipmentId === null) plainInspection.equipmentId = { _id: null, ...REMOVED_EQUIPMENT };
     const isOpen = plainInspection.status === 'pending' || plainInspection.status === 'in_progress';
     if (isOpen && daysUntilDate(new Date(plainInspection.scheduledDate as Date)) < 0) {
       plainInspection.status = 'overdue';

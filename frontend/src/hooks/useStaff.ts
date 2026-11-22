@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import * as staffApi from '@/services/staffApi'
 import { getErrorMessage } from '@/services/api'
+import { useIsMounted } from '@/hooks/useIsMounted'
 import type { User } from '@/types'
 
 /** Loads the manager's staff list and adds new staff. Also owns the state of the add slide-over. */
@@ -10,18 +11,20 @@ export function useStaff() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const isMounted = useIsMounted()
 
   const reload = useCallback(async () => {
     setIsLoading(true)
     setLoadError(null)
     try {
-      setStaff(await staffApi.fetchStaff())
+      const loaded = await staffApi.fetchStaff()
+      if (isMounted()) setStaff(loaded)
     } catch (error) {
-      setLoadError(getErrorMessage(error, 'Could not load your staff list.'))
+      if (isMounted()) setLoadError(getErrorMessage(error, 'Could not load your staff list.'))
     } finally {
-      setIsLoading(false)
+      if (isMounted()) setIsLoading(false)
     }
-  }, [])
+  }, [isMounted])
 
   useEffect(() => {
     void reload()

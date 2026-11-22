@@ -27,6 +27,13 @@ describe('signToken and verifyToken', () => {
     expect(() => verifyToken(stolen)).toThrow();
   });
 
+  it('signs with HS256, and rejects a token that uses any other algorithm even with the right secret', () => {
+    const header = JSON.parse(Buffer.from(signToken('u', 'staff', 'o').split('.')[0], 'base64url').toString()) as { alg: string };
+    expect(header.alg).toBe('HS256');
+    const otherAlgorithm = jwt.sign({ id: 'u', role: 'manager', orgId: 'o' }, process.env.JWT_SECRET as string, { algorithm: 'HS512' });
+    expect(() => verifyToken(otherAlgorithm)).toThrow(/algorithm/i);
+  });
+
   it('rejects an expired token', () => {
     const expired = jwt.sign({ id: 'u', role: 'staff', orgId: 'o' }, process.env.JWT_SECRET as string, { expiresIn: -10 });
     expect(() => verifyToken(expired)).toThrow(/expired/i);

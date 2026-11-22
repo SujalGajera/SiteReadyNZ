@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 // Tells TypeScript about Vite's special import.meta.env variables
 interface ImportMetaEnv {

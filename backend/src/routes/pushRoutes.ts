@@ -34,10 +34,10 @@ pushRouter.post(
   requireRole('manager'),
   [
     body('targetUserId').isMongoId().withMessage('Choose who to notify'),
-    body('title').trim().isLength({ min: 1, max: 80 }).withMessage('A title of up to 80 characters is required'),
-    body('body').trim().isLength({ min: 1, max: 200 }).withMessage('A message of up to 200 characters is required'),
+    body('title').isString().withMessage('This field is required and must be plain text').bail().trim().isLength({ min: 1, max: 80 }).withMessage('A title of up to 80 characters is required'),
+    body('body').isString().withMessage('This field is required and must be plain text').bail().trim().isLength({ min: 1, max: 200 }).withMessage('A message of up to 200 characters is required'),
     // Only paths inside this app, never a full web address someone could use to send people elsewhere
-    body('url').optional().matches(/^\/[A-Za-z0-9/_-]*$/).withMessage('url must be a path inside the app, like /inspections'),
+    body('url').optional().isString().withMessage('url must be text').bail().matches(/^\/[A-Za-z0-9/_-]*$/).withMessage('url must be a path inside the app, like /inspections'),
   ],
   sendNotification
 );

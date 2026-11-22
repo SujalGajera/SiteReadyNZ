@@ -27,12 +27,12 @@ function equipmentFieldRules(isUpdate: boolean) {
   const required = <T extends ReturnType<typeof body>>(chain: T): T => (isUpdate ? (chain.optional() as T) : chain);
 
   return [
-    required(body('name')).trim().notEmpty().withMessage('Name is required').isLength({ max: 120 }).withMessage('Name is too long'),
+    required(body('name')).isString().withMessage('This field is required and must be plain text').bail().trim().notEmpty().withMessage('Name is required').isLength({ max: 120 }).withMessage('Name is too long'),
     required(body('type')).isIn(EQUIPMENT_TYPES).withMessage('Choose a valid equipment type'),
-    required(body('location')).trim().notEmpty().withMessage('Location is required').isLength({ max: 160 }).withMessage('Location is too long'),
+    required(body('location')).isString().withMessage('This field is required and must be plain text').bail().trim().notEmpty().withMessage('Location is required').isLength({ max: 160 }).withMessage('Location is too long'),
     required(body('expiryDate')).isISO8601().withMessage('Expiry date must be a valid date'),
     // Optional on both create and update. Blank is allowed and means "not set".
-    body('serialNumber').optional({ values: 'falsy' }).trim().isLength({ max: 80 }).withMessage('Serial number is too long'),
+    body('serialNumber').optional({ values: 'falsy' }).isString().withMessage('This field is required and must be plain text').bail().trim().isLength({ max: 80 }).withMessage('Serial number is too long'),
     body('purchaseDate').optional({ values: 'falsy' }).isISO8601().withMessage('Purchase date must be a valid date'),
     body('lastInspectedAt').optional({ values: 'falsy' }).isISO8601().withMessage('Last inspected date must be a valid date'),
   ];

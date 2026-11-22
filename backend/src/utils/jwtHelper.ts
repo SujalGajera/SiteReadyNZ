@@ -25,6 +25,7 @@ export function signToken(userId: string, role: string, orgId: string): string {
   const expiresIn = process.env.JWT_EXPIRES_IN ?? '7d';
 
   return jwt.sign({ id: userId, role, orgId } satisfies TokenPayload, secret, {
+    algorithm: 'HS256',
     expiresIn,
   } as jwt.SignOptions);
 }
@@ -42,7 +43,8 @@ export function verifyToken(token: string): TokenPayload {
   }
 
   // jwt.verify throws JsonWebTokenError / TokenExpiredError on failure
-  const decoded = jwt.verify(token, secret) as TokenPayload;
+  // Only HS256 is accepted, so a token cannot choose a weaker or different algorithm for itself
+  const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as TokenPayload;
 
   // Tokens issued before workspaces existed have no orgId. Refusing them (instead of letting a
   // missing id turn into "match everything" in a database query) forces a fresh sign-in.

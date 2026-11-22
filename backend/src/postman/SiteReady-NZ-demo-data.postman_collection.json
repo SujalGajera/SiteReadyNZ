@@ -1,0 +1,587 @@
+{
+  "info": {
+    "_postman_id": "siteready-nz-demo-0002-0000-0000-000000000002",
+    "name": "SiteReady NZ - demo data for screenshots",
+    "description": "# Fill YOUR account with sample data\n\nUse this to get a busy-looking app for screenshots, in your own signed-in workspace.\n\n1. In the app, sign up as a manager (http://localhost:5173/register).\n2. In this collection, open the Variables tab and set `demoEmail` and `demoPassword` to what you just used.\n3. Run the collection. It adds a staff member, four pieces of equipment (one for each status), and two checks for the staff member (one due today, one 3 days late).\nRequests 10 and 11 send push notifications. Turn reminders on in Chrome (as the staff member, and as you) before running them.\n4. Refresh the app. Sign in to the staff account with `demoStaffEmail` / `demoStaffPassword` (below) to see the checklist.\n\nRunning it twice is safe for the staff member (the second add answers 409), but it adds the four equipment items again.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{managerToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); }; // your local calendar day, not UTC",
+          "pm.collectionVariables.set('today', day(0));",
+          "pm.collectionVariables.set('in20Days', day(20));",
+          "pm.collectionVariables.set('in400Days', day(400));",
+          "pm.collectionVariables.set('past10Days', day(-10));",
+          "pm.collectionVariables.set('past3Days', day(-3));",
+          "pm.collectionVariables.set('ago60Days', day(-60));",
+          "pm.cookies.jar().clear(pm.collectionVariables.get('baseUrl'), function () {});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "demoEmail",
+      "value": ""
+    },
+    {
+      "key": "demoPassword",
+      "value": ""
+    },
+    {
+      "key": "demoStaffEmail",
+      "value": "tane.walker@example.com"
+    },
+    {
+      "key": "demoStaffPassword",
+      "value": "correct-horse-battery"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Sign in as your manager",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK'.trim(), () => pm.response.to.have.status(200));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);",
+              "pm.collectionVariables.set('managerToken', pm.response.json().token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "If this answers 401, sign up in the app first and make sure demoEmail and demoPassword match.",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{demoEmail}}\",\n  \"password\": \"{{demoPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "2. Add a staff member",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created, or 409 if she already exists', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/staff",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "staff"
+          ]
+        },
+        "description": "",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Tāne Walker\",\n  \"email\": \"{{demoStaffEmail}}\",\n  \"password\": \"{{demoStaffPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "3. Find the staff member id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK'.trim(), () => pm.response.to.have.status(200));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);",
+              "const person = pm.response.json().find((p) => p.email === pm.variables.get('demoStaffEmail'));",
+              "pm.test('the staff member is in the list', () => pm.expect(person).to.exist);",
+              "pm.collectionVariables.set('staffId', person.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/staff",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "staff"
+          ]
+        },
+        "description": "",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Equipment: Ready",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created'.trim(), () => pm.response.to.have.status(201));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);",
+              "pm.test('status is ok', () => pm.expect(pm.response.json().status).to.equal('ok'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/equipment",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "equipment"
+          ]
+        },
+        "description": "",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Fire extinguisher, front office\",\n  \"type\": \"fire_extinguisher\",\n  \"location\": \"Front office\",\n  \"expiryDate\": \"{{in400Days}}\",\n  \"lastInspectedAt\": \"{{today}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "5. Equipment: Due soon",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created'.trim(), () => pm.response.to.have.status(201));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);",
+              "pm.test('status is due_soon', () => pm.expect(pm.response.json().status).to.equal('due_soon'));",
+              "pm.collectionVariables.set('firstAidId', pm.response.json()._id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/equipment",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "equipment"
+          ]
+        },
+        "description": "",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"First aid kit, kitchen\",\n  \"type\": \"first_aid\",\n  \"location\": \"Kitchen\",\n  \"expiryDate\": \"{{in20Days}}\",\n  \"lastInspectedAt\": \"{{today}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "6. Equipment: Check overdue",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created'.trim(), () => pm.response.to.have.status(201));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);",
+              "pm.test('status is overdue', () => pm.expect(pm.response.json().status).to.equal('overdue'));",
+              "pm.collectionVariables.set('overdueEquipmentId', pm.response.json()._id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/equipment",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "equipment"
+          ]
+        },
+        "description": "",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"AED, main hall\",\n  \"type\": \"aed\",\n  \"location\": \"Main hall\",\n  \"expiryDate\": \"{{in400Days}}\",\n  \"lastInspectedAt\": \"{{ago60Days}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "7. Equipment: Expired",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created'.trim(), () => pm.response.to.have.status(201));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);",
+              "pm.test('status is expired', () => pm.expect(pm.response.json().status).to.equal('expired'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/equipment",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "equipment"
+          ]
+        },
+        "description": "",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Exit sign, stairwell\",\n  \"type\": \"safety_sign\",\n  \"location\": \"Stairwell\",\n  \"expiryDate\": \"{{past10Days}}\",\n  \"lastInspectedAt\": \"{{today}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "8. Assign a check to the staff member",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created'.trim(), () => pm.response.to.have.status(201));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/inspections",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "inspections"
+          ]
+        },
+        "description": "",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"equipmentId\": \"{{overdueEquipmentId}}\",\n  \"assignedStaffId\": \"{{staffId}}\",\n  \"scheduledDate\": \"{{today}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "9. Assign a check that is 3 days late",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created'.trim(), () => pm.response.to.have.status(201));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/inspections",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "inspections"
+          ]
+        },
+        "description": "Gives the manager something to be alerted about (a check more than a day late).",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"equipmentId\": \"{{firstAidId}}\",\n  \"assignedStaffId\": \"{{staffId}}\",\n  \"scheduledDate\": \"{{past3Days}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "10. Send a test notification to the staff member",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK'.trim(), () => pm.response.to.have.status(200));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);",
+              "pm.test('reports devices, delivered and a message', () => { const b = pm.response.json(); pm.expect(b.devices).to.be.a('number'); pm.expect(b.delivered).to.be.a('number'); pm.expect(b.message).to.be.a('string'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/push/send",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "push",
+            "send"
+          ]
+        },
+        "description": "The staff member must have turned reminders on in Chrome first. Otherwise this answers 200 with delivered 0.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"targetUserId\": \"{{staffId}}\",\n  \"title\": \"Check due today\",\n  \"body\": \"Please check the AED in the main hall.\",\n  \"url\": \"/inspections\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "11. Run the automatic reminder and overdue checks",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK'.trim(), () => pm.response.to.have.status(200));",
+              "pm.test('answers with JSON', () => pm.response.to.be.json);",
+              "pm.test('returns the counts', () => { const b = pm.response.json(); pm.expect(b.reminders).to.be.a('number'); pm.expect(b.lateAlerts).to.be.a('number'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/push/run-checks",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "push",
+            "run-checks"
+          ]
+        },
+        "description": "Sends the staff reminder and the manager alert for the late check, to anyone who has reminders on.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -110,7 +110,7 @@ Work through these phases **in order**. Do not jump ahead. Each phase has clear 
 - [x] Add/Edit Equipment slide-over form with validation
 - [x] Status calculator (OK / Due Soon / Overdue / Expired logic)
 - [x] Stats cards (total, due, overdue counts)
-- [ ] Postman tested — all endpoints return correct status codes (collection ready in docs/postman; screenshots are yours to capture)
+- [ ] Postman tested — all endpoints return correct status codes (collection ready in backend/src/postman and run end to end with Newman; screenshots are yours to capture, see docs/SCREENSHOTS.md)
 - **Done when:** Manager can fully CRUD equipment. Status auto-calculates from expiry date. Postman screenshots captured.
 
 ### Phase 4 — Feature 2: Offline Inspection Checklist (Staff)

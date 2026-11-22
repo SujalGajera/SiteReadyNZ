@@ -11,8 +11,12 @@ import { SyncProvider } from '@/context/SyncContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
+import { registerServiceWorker } from '@/sw/registerServiceWorker'
 import App from './App'
 import './index.css'
+
+// Starts the offline support (service worker) before anything is drawn
+registerServiceWorker()
 
 // Provider order matters: the error boundary wraps everything so a crash anywhere shows the
 // fallback screen. MotionConfig makes every animation respect the device's "reduce motion" setting.
